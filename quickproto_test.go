@@ -46,14 +46,9 @@ func TestGenerate(t *testing.T) {
 	msg.Generate()
 	fmt.Println("(SHORT B64) Generation time:", time.Since(start_time))
 	// Validate the message
-	if string(msg.Data) != "key1&value1&value2&&key2&value2&&&&Qk9EWUJPRFlCT0RZ" {
-		if string(msg.Data) != "key2&value2&&key1&value1&value2&&&&Qk9EWUJPRFlCT0RZ" {
-			t.Error("(SHORT B64)Expected data to be key1&value1&value2&&key2&value2&&&&Qk9EWUJPRFlCT0RZ")
-			fmt.Println(string(msg.Data))
-			fmt.Println("key1&value1&value2&&key2&value2&&&&Qk9EWUJPRFlCT0RZ")
-			fmt.Println(string(msg.Data) == "key1&value1&value2&&key2&value2&&&&Qk9EWUJPRFlCT0RZ")
-			fmt.Println(string(msg.Data) == "key1&value1&value2&&key2&value2&&&&Qk9EWUJPRFlCT0RZ")
-			fmt.Println(len(string(msg.Data)), len("key1&value1&value2&&key2&value2&&&&Qk9EWUJPRFlCT0RZ"))
+	if string(msg.Data) != "key1&value1&value2&&key2&value2&&&&Qk9EWUJPRFlCT0RZ&&&&&&&&" {
+		if string(msg.Data) != "key2&value2&&key1&value1&value2&&&&Qk9EWUJPRFlCT0RZ&&&&&&&&" {
+			t.Error("(SHORT B64)Expected data to be key1&value1&value2&&key2&value2&&&&Qk9EWUJPRFlCT0RZ&&&&&&&&")
 		}
 	}
 }
@@ -96,9 +91,9 @@ func TestGenerateLong(t *testing.T) {
 	fmt.Println("(LONG B64) Generation time:", time.Since(start_time))
 	// Validate the message
 	b64 := base64.StdEncoding.EncodeToString(msg.Body)
-	if string(msg.Data) != "key1&value1&&key2&value2&&&&"+b64 {
-		if string(msg.Data) != "key2&value2&&key1&value1&&&&"+b64 {
-			t.Error("(LONG B64) Expected data to be key1&value1&&key2&value2&&&&Qk9EWUJPRFlCT0RZ_")
+	if string(msg.Data) != "key1&value1&&key2&value2&&&&"+b64+"&&&&&&&&" {
+		if string(msg.Data) != "key2&value2&&key1&value1&&&&"+b64+"&&&&&&&&" {
+			t.Error("(LONG B64) Expected data to be key1&value1&&key2&value2&&&&Qk9EWUJPRFlCT0RZ_&&&&&&&&")
 		}
 	}
 }
@@ -138,9 +133,9 @@ func TestGenerate_NoB64(t *testing.T) {
 	msg.Generate()
 	fmt.Println("(SHORT NOB64) Generation time:", time.Since(start_time))
 	// Validate the message
-	if string(msg.Data) != "key1&value1&&key2&value2&&&&BODYBODYBODY" {
-		if string(msg.Data) != "key2&value2&&key1&value1&&&&BODYBODYBODY" {
-			t.Error("(SHORT NO_B64) Expected data to be key1&value1&&key2&value2&&&&BODYBODYBODY")
+	if string(msg.Data) != "key1&value1&&key2&value2&&&&BODYBODYBODY&&&&&&&&" {
+		if string(msg.Data) != "key2&value2&&key1&value1&&&&BODYBODYBODY&&&&&&&&" {
+			t.Error("(SHORT NO_B64) Expected data to be key1&value1&&key2&value2&&&&BODYBODYBODY&&&&&&&&")
 		}
 	}
 }
@@ -184,9 +179,9 @@ func TestGenerateLong_NoB64(t *testing.T) {
 	fmt.Println("(LONG NO_B64) Generation time:", time.Since(start_time))
 	// Validate the message
 	// b64 := base64.StdEncoding.EncodeToString(msg.Body)
-	if string(msg.Data) != "key1&value1&&key2&value2&&&&"+string(body) {
-		if string(msg.Data) != "key2&value2&&key1&value1&&&&"+string(body) {
-			t.Error("(LONG NO_B64) Expected data to be key1&value1&&key2&value2&&&&BODYBODYBODY_")
+	if string(msg.Data) != "key1&value1&&key2&value2&&&&"+string(body)+"&&&&&&&&" {
+		if string(msg.Data) != "key2&value2&&key1&value1&&&&"+string(body)+"&&&&&&&&" {
+			t.Error("(LONG NO_B64) Expected data to be key1&value1&&key2&value2&&&&BODYBODYBODY_&&&&&&&&")
 		}
 	}
 }

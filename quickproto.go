@@ -40,6 +40,18 @@ func (m *Message) AddHeader(key string, value string) {
 	}
 }
 
+func (m *Message) HeaderDelimiter() []byte {
+	return append(m.Delimiter, m.Delimiter...)
+}
+
+func (m *Message) BodyDelimiter() []byte {
+	return append(m.HeaderDelimiter(), m.HeaderDelimiter()...)
+}
+
+func (m *Message) EndingDelimiter() []byte {
+	return append(m.BodyDelimiter(), m.BodyDelimiter()...)
+}
+
 // parses protocol messages.
 // Header is a map of key/value pairs.
 // Body is a base64 encoded byte slice.
@@ -48,15 +60,16 @@ func (m *Message) Parse() (*Message, error) {
 	// if m.Parsed || m.Generated {
 	// 	return m, errors.New("message has already been parsed")
 	// }
-	header_delimiter := append(m.Delimiter, m.Delimiter...)
-	body_delimiter := append(header_delimiter, header_delimiter...)
+	header_delimiter := m.HeaderDelimiter()
+	body_delimiter := m.BodyDelimiter()
+	ending_delimiter := m.EndingDelimiter()
 	// Split data into headers and body
-	data := bytes.SplitN(m.Data, body_delimiter, 2)
-	if len(data) != 2 {
+	datalist := bytes.SplitN(m.Data, body_delimiter, 2)
+	if len(datalist) != 2 {
 		return nil, errors.New("invalid message sent")
 	}
 	// Get headers from m.Data
-	headers := bytes.Split(data[0], header_delimiter)
+	headers := bytes.Split(datalist[0], header_delimiter)
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 	for _, header := range headers {
@@ -79,14 +92,15 @@ func (m *Message) Parse() (*Message, error) {
 	// Decode base64 encoded body
 	var body []byte
 	var err error
+	datalist[1] = bytes.Trim(datalist[1], string(ending_delimiter))
 	if m.Use_Base64 {
-		b64 := data[1]
+		b64 := datalist[1]
 		body, err = base64.StdEncoding.DecodeString(string(b64))
 		if err != nil {
 			return nil, errors.New("invalid base64 encoded body")
 		}
 	} else {
-		body = data[1]
+		body = datalist[1]
 	}
 	wg.Wait()
 	m.Body = body
@@ -157,6 +171,7 @@ func (m *Message) Generate() (*Message, error) {
 	} else {
 		buffer.Write(m.Body)
 	}
+	buffer.Write(m.EndingDelimiter())
 	m.Data = buffer.Bytes()
 	// m.Generated = true
 	return m, nil
