@@ -11,7 +11,7 @@ import (
 func TestParse(t *testing.T) {
 	// Create a new message
 	msg := NewMessage([]byte("&"), true)
-	msg.Data = []byte("key1&value1&&key2&value2&&&&Qk9EWUJPRFlCT0RZ")
+	msg.Data = []byte("key1&value1&value2&&key2&value2&&&&Qk9EWUJPRFlCT0RZ")
 	// Test and time the parsing of the message
 	start_time := time.Now()
 	_, err := msg.Parse()
@@ -20,11 +20,14 @@ func TestParse(t *testing.T) {
 		fmt.Println(err)
 	}
 	// Validate the message
-	if msg.Headers["key1"] != "value1" {
-		t.Error("(SHORT B64) Expected key1 to be value1")
+	if msg.Headers["key1"][0] != "value1" {
+		t.Error("(SHORT B64) Expected key1 to be value1 " + msg.Headers["key1"][0])
 	}
-	if msg.Headers["key2"] != "value2" {
-		t.Error("(SHORT B64) Expected key2 to be value2")
+	if msg.Headers["key1"][1] != "value2" {
+		t.Error("(SHORT B64) Expected key1 to be value2 " + msg.Headers["key1"][1])
+	}
+	if msg.Headers["key2"][0] != "value2" {
+		t.Error("(SHORT B64) Expected key2 to be value2 " + msg.Headers["key2"][0])
 	}
 	if string(msg.Body) != "BODYBODYBODY" {
 		t.Error("(SHORT B64) Expected body to be BODYBODYBODY")
@@ -34,8 +37,8 @@ func TestParse(t *testing.T) {
 func TestGenerate(t *testing.T) {
 	// Create a new message
 	msg := NewMessage([]byte("&"), true)
-	msg.Headers["key1"] = "value1"
-	msg.Headers["key2"] = "value2"
+	msg.Headers["key1"] = []string{"value1"}
+	msg.Headers["key2"] = []string{"value2"}
 	msg.Body = []byte("BODYBODYBODY")
 	// Test and time the parsing of the message
 	start_time := time.Now()
@@ -63,11 +66,11 @@ func TestParseLong(t *testing.T) {
 		t.Error(err)
 	}
 	// Validate the message
-	if msg.Headers["key1"] != "value1" {
-		t.Error("(LONG B64) Expected key1 to be value1")
+	if msg.Headers["key1"][0] != "value1" {
+		t.Error("(LONG B64) Expected key1 to be value1 " + msg.Headers["key1"][0])
 	}
-	if msg.Headers["key2"] != "value2" {
-		t.Error("(LONG B64) Expected key2 to be value2")
+	if msg.Headers["key2"][0] != "value2" {
+		t.Error("(LONG B64) Expected key2 to be value2 " + msg.Headers["key2"][0])
 	}
 	if string(msg.Body) != strings.Repeat("BODYBODYBODY_", 100000000) { // 13 * 100000000 = 1300000000 bytes (1300 MB)
 		t.Error("(LONG B64) Expected body to be BODYBODYBODY")
@@ -77,8 +80,8 @@ func TestParseLong(t *testing.T) {
 func TestGenerateLong(t *testing.T) {
 	// Create a new message
 	msg := NewMessage([]byte("&"), true)
-	msg.Headers["key1"] = "value1"
-	msg.Headers["key2"] = "value2"
+	msg.Headers["key1"] = []string{"value1"}
+	msg.Headers["key2"] = []string{"value2"}
 	// Create a 1300 MB body
 	msg.Body = []byte(strings.Repeat("BODYBODYBODY_", 100000000)) // 13 * 100000000 = 1300000000 bytes (1300 MB)
 	// Test and time the parsing of the message
@@ -107,11 +110,11 @@ func TestParse_NoB64(t *testing.T) {
 		fmt.Println(err)
 	}
 	// Validate the message
-	if msg.Headers["key1"] != "value1" {
-		t.Error("(SHORT NO_B64) Expected key1 to be value1")
+	if msg.Headers["key1"][0] != "value1" {
+		t.Error("(SHORT NO_B64) Expected key1 to be value1" + msg.Headers["key1"][0])
 	}
-	if msg.Headers["key2"] != "value2" {
-		t.Error("(SHORT NO_B64) Expected key2 to be value2")
+	if msg.Headers["key2"][0] != "value2" {
+		t.Error("(SHORT NO_B64) Expected key2 to be value2" + msg.Headers["key2"][0])
 	}
 	if string(msg.Body) != "BODYBODYBODY" {
 		t.Error("(SHORT NO_B64) Expected body to be BODYBODYBODY")
@@ -121,8 +124,8 @@ func TestParse_NoB64(t *testing.T) {
 func TestGenerate_NoB64(t *testing.T) {
 	// Create a new message
 	msg := NewMessage([]byte("&"), false)
-	msg.Headers["key1"] = "value1"
-	msg.Headers["key2"] = "value2"
+	msg.Headers["key1"] = []string{"value1"}
+	msg.Headers["key2"] = []string{"value2"}
 	msg.Body = []byte("BODYBODYBODY")
 	// Test and time the parsing of the message
 	start_time := time.Now()
@@ -150,11 +153,11 @@ func TestParseLong_NoB64(t *testing.T) {
 		t.Error(err)
 	}
 	// Validate the message
-	if msg.Headers["key1"] != "value1" {
-		t.Error("(LONG NO_B64) Expected key1 to be value1")
+	if msg.Headers["key1"][0] != "value1" {
+		t.Error("(LONG NO_B64) Expected key1 to be value1 " + msg.Headers["key1"][0])
 	}
-	if msg.Headers["key2"] != "value2" {
-		t.Error("(LONG NO_B64) Expected key2 to be value2")
+	if msg.Headers["key2"][0] != "value2" {
+		t.Error("(LONG NO_B64) Expected key2 to be value2 " + msg.Headers["key2"][0])
 	}
 	if string(msg.Body) != strings.Repeat("BODYBODYBODY_", 100000000) { // 13 * 100000000 = 1300000000 bytes (1300 MB)
 		t.Error("(LONG NO_B64) Expected body to be BODYBODYBODY")
@@ -164,8 +167,8 @@ func TestParseLong_NoB64(t *testing.T) {
 func TestGenerateLong_NoB64(t *testing.T) {
 	// Create a new message
 	msg := NewMessage([]byte("&"), false)
-	msg.Headers["key1"] = "value1"
-	msg.Headers["key2"] = "value2"
+	msg.Headers["key1"] = []string{"value1"}
+	msg.Headers["key2"] = []string{"value2"}
 	// Create a 1300 MB body
 	body := []byte(strings.Repeat("BODYBODYBODY_", 100000000)) // 13 * 100000000 = 1300000000 bytes (1300 MB)
 	msg.Body = body

@@ -10,7 +10,7 @@ import (
 type Message struct {
 	Data       []byte
 	Delimiter  []byte
-	Headers    map[string]string
+	Headers    map[string][]string
 	Body       []byte
 	Use_Base64 bool
 	// Parsed    bool
@@ -22,7 +22,7 @@ func NewMessage(delimiter []byte, use_b64 bool) *Message {
 	return &Message{
 		Data:       []byte{},
 		Delimiter:  delimiter,
-		Headers:    make(map[string]string),
+		Headers:    make(map[string][]string),
 		Body:       []byte{},
 		Use_Base64: use_b64,
 		// Parsed:    false,
@@ -48,9 +48,13 @@ func (m *Message) Parse() (*Message, error) {
 	// Get headers from m.Data
 	headers := bytes.Split(data[0], header_delimiter)
 	for _, header := range headers {
-		// Split header into key and value
-		head := bytes.SplitN(header, m.Delimiter, 2)
-		m.Headers[string(head[0])] = string(head[1])
+		// Split header into key and values
+		head := bytes.Split(header, m.Delimiter)
+		str_list := make([]string, 0)
+		for _, byt := range head[1:] {
+			str_list = append(str_list, string(byt))
+		}
+		m.Headers[string(head[0])] = str_list
 	}
 	// Get body from m.Data
 	// Decode base64 encoded body
@@ -83,12 +87,20 @@ func (m *Message) Generate() (*Message, error) {
 	// Create headers
 	for key, value := range m.Headers {
 		// Create buffer for length of current header line
-		headerline := make([]byte, len(key)+len(value)+len(m.Delimiter)+len(header_delimiter))
+		total_len := 0
+		for _, str := range value {
+			// Append key and value to headerline
+			val_len := len(str)
+			total_len = total_len + val_len
+		}
+		headerline := make([]byte, len(key)+total_len+len(m.Delimiter)+len(header_delimiter))
 		// Copy the header into the headerline
 		copy(headerline, []byte(key))
 		copy(headerline[len(key):], m.Delimiter)
-		copy(headerline[len(key)+len(m.Delimiter):], []byte(value))
-		copy(headerline[len(key)+len(m.Delimiter)+len(value):], header_delimiter)
+		for _, str := range value {
+			copy(headerline[len(key)+len(m.Delimiter):], []byte(str))
+			copy(headerline[len(key)+len(m.Delimiter)+len(str):], header_delimiter)
+		}
 		// Append the headerline to the buffer
 		buffer.Write(headerline)
 	}

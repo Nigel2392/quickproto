@@ -1,7 +1,7 @@
 Fast golang protocol parser
 
 Supports:
-* Headers
+* Headers (Support listed values, IE: Key=[Value, Value, Value])
 * Body (Can be encoded/decoded to base64)
 * Delimiters
 
@@ -17,5 +17,5 @@ Then the key values will be split by the delimiter.
 
 Example:
 ```
-key1$value1$$key2$value2$$$$BODYBODYBODY
+key1$value1&value2$$key2$value2$$$$BODYBODYBODY
 ```
