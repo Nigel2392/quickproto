@@ -190,3 +190,32 @@ func TestGenerateLong_NoB64(t *testing.T) {
 		}
 	}
 }
+
+func TestGenerateAndParse(t *testing.T) {
+	msg := NewMessage([]byte("###"), true)
+	msg.AddHeader("key1", "value1")
+	msg.AddHeader("key1", "value2")
+	msg.AddHeader("key1", "value3")
+	msg.AddHeader("key2", "value2")
+	msg.Body = []byte("BODYBODYBODY")
+	msg.Generate()
+	_, err := msg.Parse()
+	if err != nil {
+		t.Error(err)
+	}
+	if msg.Headers["key1"][0] != "value1" {
+		t.Error("Expected key1 to be value1")
+	}
+	if msg.Headers["key1"][1] != "value2" {
+		t.Error("Expected key1 to be value2")
+	}
+	if msg.Headers["key1"][2] != "value3" {
+		t.Error("Expected key1 to be value3")
+	}
+	if msg.Headers["key2"][0] != "value2" {
+		t.Error("Expected key2 to be value2")
+	}
+	if string(msg.Body) != "BODYBODYBODY" {
+		t.Error("Expected body to be BODYBODYBODY")
+	}
+}

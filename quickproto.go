@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"errors"
+	"sync"
 )
 
 // A Message is a protocol message.
@@ -56,14 +57,23 @@ func (m *Message) Parse() (*Message, error) {
 	}
 	// Get headers from m.Data
 	headers := bytes.Split(data[0], header_delimiter)
+	var wg sync.WaitGroup
+	var mu sync.Mutex
 	for _, header := range headers {
-		// Split header into key and values
-		head := bytes.Split(header, m.Delimiter)
-		str_list := make([]string, 0)
-		for _, byt := range head[1:] {
-			str_list = append(str_list, string(byt))
-		}
-		m.Headers[string(head[0])] = str_list
+		wg.Add(1)
+		// Start goroutine for each header
+		go func(header []byte, wg *sync.WaitGroup, mu *sync.Mutex) {
+			defer wg.Done()
+			// Split header into key and values
+			head := bytes.Split(header, m.Delimiter)
+			str_list := make([]string, 0)
+			for _, byt := range head[1:] {
+				str_list = append(str_list, string(byt))
+			}
+			mu.Lock()
+			m.Headers[string(head[0])] = str_list
+			mu.Unlock()
+		}(header, &wg, &mu)
 	}
 	// Get body from m.Data
 	// Decode base64 encoded body
@@ -78,6 +88,7 @@ func (m *Message) Parse() (*Message, error) {
 	} else {
 		body = data[1]
 	}
+	wg.Wait()
 	m.Body = body
 	// m.Parsed = true
 	return m, nil
@@ -92,41 +103,52 @@ func (m *Message) Generate() (*Message, error) {
 	// 	return m, errors.New("message has already been generated")
 	// }
 	var buffer bytes.Buffer
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+
 	header_delimiter := append(m.Delimiter, m.Delimiter...)
 	// Create headers
 	for key, value := range m.Headers {
-		// Create buffer for length of current header line
-		total_len := 0
-		for _, str := range value {
-			// Append key and value to headerline
-			val_len := len(str)
-			total_len = total_len + val_len + len(m.Delimiter)
-		}
-		// buffer.WriteString(key)
-		// buffer.Write(m.Delimiter)
-		// for _, str := range value {
-		// buffer.WriteString(str)
-		// buffer.Write(m.Delimiter)
-		// }
-		// buffer.Write(m.Delimiter)
+		wg.Add(1)
+		// Start goroutine for each header
+		go func(key string, value []string, buffer *bytes.Buffer, wg *sync.WaitGroup, mu *sync.Mutex) {
+			defer wg.Done()
+			// Create buffer for length of current header line
+			total_len := 0
+			for _, str := range value {
+				// Append key and value to headerline
+				val_len := len(str)
+				total_len = total_len + val_len + len(m.Delimiter)
+			}
+			// buffer.WriteString(key)
+			// buffer.Write(m.Delimiter)
+			// for _, str := range value {
+			// buffer.WriteString(str)
+			// buffer.Write(m.Delimiter)
+			// }
+			// buffer.Write(m.Delimiter)
 
-		// Create headerline
-		headerline := make([]byte, len(key)+len(m.Delimiter)+total_len+len(m.Delimiter))
-		// Copy key to headerline
-		copy(headerline, key)
-		copy(headerline[len(key):], m.Delimiter)
-		// Copy values to headerline
-		current_pos := len(key) + len(m.Delimiter)
-		for _, str := range value {
-			copy(headerline[current_pos:], str)
-			copy(headerline[current_pos+len(str):], m.Delimiter)
-			current_pos = current_pos + len(str) + len(m.Delimiter)
-		}
-		// Set last delimiter
-		copy(headerline[current_pos:], m.Delimiter)
-		// Append headerline to buffer
-		buffer.Write(headerline)
+			// Create headerline
+			headerline := make([]byte, len(key)+len(m.Delimiter)+total_len+len(m.Delimiter))
+			// Copy key to headerline
+			copy(headerline, key)
+			copy(headerline[len(key):], m.Delimiter)
+			// Copy values to headerline
+			current_pos := len(key) + len(m.Delimiter)
+			for _, str := range value {
+				copy(headerline[current_pos:], str)
+				copy(headerline[current_pos+len(str):], m.Delimiter)
+				current_pos = current_pos + len(str) + len(m.Delimiter)
+			}
+			// Set last delimiter
+			copy(headerline[current_pos:], m.Delimiter)
+			// Append headerline to buffer
+			mu.Lock()
+			buffer.Write(headerline)
+			mu.Unlock()
+		}(key, value, &buffer, &wg, &mu)
 	}
+	wg.Wait()
 	// Create body
 	buffer.Write(header_delimiter)
 	if m.Use_Base64 {
