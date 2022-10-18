@@ -37,17 +37,23 @@ func TestParse(t *testing.T) {
 func TestGenerate(t *testing.T) {
 	// Create a new message
 	msg := NewMessage([]byte("&"), true)
-	msg.Headers["key1"] = []string{"value1"}
-	msg.Headers["key2"] = []string{"value2"}
+	msg.AddHeader("key1", "value1")
+	msg.AddHeader("key1", "value2")
+	msg.AddHeader("key2", "value2")
 	msg.Body = []byte("BODYBODYBODY")
 	// Test and time the parsing of the message
 	start_time := time.Now()
 	msg.Generate()
 	fmt.Println("(SHORT B64) Generation time:", time.Since(start_time))
 	// Validate the message
-	if string(msg.Data) != "key1&value1&&key2&value2&&&&Qk9EWUJPRFlCT0RZ" {
-		if string(msg.Data) != "key2&value2&&key1&value1&&&&Qk9EWUJPRFlCT0RZ" {
-			t.Error("(SHORT B64)Expected data to be key1&value1&&key2&value2&&&&Qk9EWUJPRFlCT0RZ")
+	if string(msg.Data) != "key1&value1&value2&&key2&value2&&&&Qk9EWUJPRFlCT0RZ" {
+		if string(msg.Data) != "key2&value2&&key1&value1&value2&&&&Qk9EWUJPRFlCT0RZ" {
+			t.Error("(SHORT B64)Expected data to be key1&value1&value2&&key2&value2&&&&Qk9EWUJPRFlCT0RZ")
+			fmt.Println(string(msg.Data))
+			fmt.Println("key1&value1&value2&&key2&value2&&&&Qk9EWUJPRFlCT0RZ")
+			fmt.Println(string(msg.Data) == "key1&value1&value2&&key2&value2&&&&Qk9EWUJPRFlCT0RZ")
+			fmt.Println(string(msg.Data) == "key1&value1&value2&&key2&value2&&&&Qk9EWUJPRFlCT0RZ")
+			fmt.Println(len(string(msg.Data)), len("key1&value1&value2&&key2&value2&&&&Qk9EWUJPRFlCT0RZ"))
 		}
 	}
 }

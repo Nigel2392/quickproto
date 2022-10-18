@@ -30,6 +30,15 @@ func NewMessage(delimiter []byte, use_b64 bool) *Message {
 	}
 }
 
+func (m *Message) AddHeader(key string, value string) {
+	_, ok := m.Headers[key]
+	if ok {
+		m.Headers[key] = append(m.Headers[key], value)
+	} else {
+		m.Headers[key] = []string{value}
+	}
+}
+
 // parses protocol messages.
 // Header is a map of key/value pairs.
 // Body is a base64 encoded byte slice.
@@ -91,17 +100,31 @@ func (m *Message) Generate() (*Message, error) {
 		for _, str := range value {
 			// Append key and value to headerline
 			val_len := len(str)
-			total_len = total_len + val_len
+			total_len = total_len + val_len + len(m.Delimiter)
 		}
-		headerline := make([]byte, len(key)+total_len+len(m.Delimiter)+len(header_delimiter))
-		// Copy the header into the headerline
-		copy(headerline, []byte(key))
+		// buffer.WriteString(key)
+		// buffer.Write(m.Delimiter)
+		// for _, str := range value {
+		// buffer.WriteString(str)
+		// buffer.Write(m.Delimiter)
+		// }
+		// buffer.Write(m.Delimiter)
+
+		// Create headerline
+		headerline := make([]byte, len(key)+len(m.Delimiter)+total_len+len(m.Delimiter))
+		// Copy key to headerline
+		copy(headerline, key)
 		copy(headerline[len(key):], m.Delimiter)
+		// Copy values to headerline
+		current_pos := len(key) + len(m.Delimiter)
 		for _, str := range value {
-			copy(headerline[len(key)+len(m.Delimiter):], []byte(str))
-			copy(headerline[len(key)+len(m.Delimiter)+len(str):], header_delimiter)
+			copy(headerline[current_pos:], str)
+			copy(headerline[current_pos+len(str):], m.Delimiter)
+			current_pos = current_pos + len(str) + len(m.Delimiter)
 		}
-		// Append the headerline to the buffer
+		// Set last delimiter
+		copy(headerline[current_pos:], m.Delimiter)
+		// Append headerline to buffer
 		buffer.Write(headerline)
 	}
 	// Create body
