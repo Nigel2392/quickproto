@@ -16,10 +16,6 @@ type Config struct {
 	BufSize   int
 }
 
-type SendConstraint interface {
-	string | []byte
-}
-
 // A Message is a protocol message.
 type Message struct {
 	Data       []byte
@@ -27,20 +23,24 @@ type Message struct {
 	Headers    map[string][]string
 	Body       []byte
 	Use_Base64 bool
-	Files      []MessageFile
+	Files      map[string]MessageFile
 	// Parsed    bool
 	// Generated bool
 }
 
 // NewMessage creates a new Message.
 func NewMessage(delimiter []byte, use_b64 bool) *Message {
+	if delimiter == nil {
+		delimiter = STANDARD_DELIM
+	}
+	// Verify if delimiter is not in base64 alphabet
 	return &Message{
 		Data:       []byte{},
 		Delimiter:  delimiter,
 		Headers:    make(map[string][]string),
 		Body:       []byte{},
 		Use_Base64: use_b64,
-		Files:      make([]MessageFile, 0),
+		Files:      make(map[string]MessageFile),
 		// Parsed:    false,
 		// Generated: false,
 	}
@@ -68,11 +68,11 @@ func (m *Message) AddContent(content any) error {
 }
 
 func (m *Message) AddFile(file MessageFile) {
-	m.Files = append(m.Files, file)
+	m.Files[file.Name] = file
 }
 
-func (m *Message) AddRawFile(Name string, Data []byte) {
-	m.Files = append(m.Files, MessageFile{Name: Name, Data: Data})
+func (m *Message) AddRawFile(name string, data []byte) {
+	m.Files[name] = MessageFile{Name: name, Data: data}
 }
 
 // Normal delimiter example:
@@ -173,12 +173,20 @@ func (m *Message) Parse() (*Message, error) {
 	for _, file := range body_data {
 		go func(file []byte, wg *sync.WaitGroup, mu *sync.Mutex) {
 			defer wg.Done()
-			file_data := bytes.Split(file, m.Delimiter)
+			file_data := bytes.Split(file, m.HeaderDelimiter())
 			if len(file_data) != 2 {
 				return
 			}
+			file_name := string(file_data[0])
+			b64_file_data := file_data[1]
+			buf := bytes.NewBuffer(b64_file_data)
+			decoder := base64.NewDecoder(base64.StdEncoding, buf)
+			file_data_bytes, err := io.ReadAll(decoder)
+			if err != nil {
+				return
+			}
 			mu.Lock()
-			m.Files = append(m.Files, MessageFile{Name: string(file_data[0]), Data: file_data[1]})
+			m.Files[file_name] = MessageFile{Name: file_name, Data: file_data_bytes}
 			mu.Unlock()
 		}(file, &wg, &mu)
 	}
@@ -246,15 +254,21 @@ func (m *Message) Generate() (*Message, error) {
 		go func(file MessageFile, buffer *bytes.Buffer, wg *sync.WaitGroup, mu *sync.Mutex) {
 			defer wg.Done()
 			// Create buffer for length of current file line
-			total_len := len(file.Name) + len(m.HeaderDelimiter()) + len(file.Data) + len(m.FileDelimiter())
+			// Base 64 encode file data
+			var b64_buffer bytes.Buffer
+			encoder := base64.NewEncoder(base64.StdEncoding, &b64_buffer)
+			encoder.Write(file.Data)
+			encoder.Close()
+			b64_file_data := b64_buffer.Bytes()
+			total_len := len(file.Name) + len(m.HeaderDelimiter()) + len(b64_file_data) + len(m.FileDelimiter())
 			// Create fileline
 			fileline := make([]byte, total_len)
 			// Copy name to fileline
 			copy(fileline, file.Name)
 			copy(fileline[len(file.Name):], m.HeaderDelimiter())
 			// Copy data to fileline
-			copy(fileline[len(file.Name)+len(m.HeaderDelimiter()):], file.Data)
-			copy(fileline[len(file.Name)+len(m.HeaderDelimiter())+len(file.Data):], m.FileDelimiter())
+			copy(fileline[len(file.Name)+len(m.HeaderDelimiter()):], b64_file_data)
+			copy(fileline[len(file.Name)+len(m.HeaderDelimiter())+len(b64_file_data):], m.FileDelimiter())
 			// Append fileline to buffer
 			// Lock the mutex to prevent datarace
 			mu.Lock()
