@@ -56,7 +56,7 @@ func TestGenerate(t *testing.T) {
 func TestParseLong(t *testing.T) {
 	// Create a new message
 	msg := NewMessage([]byte("&"), true)
-	body := []byte(strings.Repeat("BODYBODYBODY_", 8000000)) // 13 * 8000000 = 1300000000 bytes (1300 MB)
+	body := []byte(strings.Repeat("BODYBODYBODY_", 10000000)) // 13 * 10000000 = bytes (130 MB)
 	b64 := base64.StdEncoding.EncodeToString(body)
 	msg.Data = []byte("key1&value1&&key2&value2&&&&" + b64)
 	// Test and time the parsing of the message
@@ -73,7 +73,7 @@ func TestParseLong(t *testing.T) {
 	if msg.Headers["key2"][0] != "value2" {
 		t.Error("(LONG B64) Expected key2 to be value2 " + msg.Headers["key2"][0])
 	}
-	if string(msg.Body) != strings.Repeat("BODYBODYBODY_", 8000000) { // 13 * 8000000 = 1300000000 bytes (1300 MB)
+	if string(msg.Body) != strings.Repeat("BODYBODYBODY_", 10000000) { // 13 * 10000000 = bytes (130 MB)
 		t.Error("(LONG B64) Expected body to be BODYBODYBODY")
 	}
 }
@@ -83,8 +83,8 @@ func TestGenerateLong(t *testing.T) {
 	msg := NewMessage([]byte("&"), true)
 	msg.Headers["key1"] = []string{"value1"}
 	msg.Headers["key2"] = []string{"value2"}
-	// Create a 1300 MB body
-	msg.Body = []byte(strings.Repeat("BODYBODYBODY_", 8000000)) // 13 * 8000000 = 1300000000 bytes (1300 MB)
+	// Create a 130 MB body
+	msg.Body = []byte(strings.Repeat("BODYBODYBODY_", 10000000)) // 13 * 10000000 = bytes (130 MB)
 	// Test and time the parsing of the message
 	start_time := time.Now()
 	msg.Generate()
@@ -143,7 +143,7 @@ func TestGenerate_NoB64(t *testing.T) {
 func TestParseLong_NoB64(t *testing.T) {
 	// Create a new message
 	msg := NewMessage([]byte("&"), false)
-	body := []byte(strings.Repeat("BODYBODYBODY_", 8000000)) // 13 * 8000000 = 1300000000 bytes (1300 MB)
+	body := []byte(strings.Repeat("BODYBODYBODY_", 10000000)) // 13 * 10000000 = bytes (130 MB)
 	// b64 := base64.StdEncoding.EncodeToString(body)
 	msg.Data = []byte("key1&value1&&key2&value2&&&&" + string(body))
 	// Test and time the parsing of the message
@@ -160,7 +160,7 @@ func TestParseLong_NoB64(t *testing.T) {
 	if msg.Headers["key2"][0] != "value2" {
 		t.Error("(LONG NO_B64) Expected key2 to be value2 " + msg.Headers["key2"][0])
 	}
-	if string(msg.Body) != strings.Repeat("BODYBODYBODY_", 8000000) { // 13 * 8000000 = 1300000000 bytes (1300 MB)
+	if string(msg.Body) != strings.Repeat("BODYBODYBODY_", 10000000) { // 13 * 10000000 = bytes (130 MB)
 		t.Error("(LONG NO_B64) Expected body to be BODYBODYBODY")
 	}
 }
@@ -170,8 +170,8 @@ func TestGenerateLong_NoB64(t *testing.T) {
 	msg := NewMessage([]byte("&"), false)
 	msg.Headers["key1"] = []string{"value1"}
 	msg.Headers["key2"] = []string{"value2"}
-	// Create a 1300 MB body
-	body := []byte(strings.Repeat("BODYBODYBODY_", 8000000)) // 13 * 8000000 = 1300000000 bytes (1300 MB)
+	// Create a 130 MB body
+	body := []byte(strings.Repeat("BODYBODYBODY_", 10000000)) // 13 * 10000000 = bytes (130 MB)
 	msg.Body = body
 	// Test and time the parsing of the message
 	start_time := time.Now()

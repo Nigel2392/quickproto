@@ -7,6 +7,8 @@ import (
 	"sync"
 )
 
+var STANDARD_DELIM []byte = []byte("$")
+
 // A Message is a protocol message.
 type Message struct {
 	Data       []byte
@@ -134,14 +136,6 @@ func (m *Message) Generate() (*Message, error) {
 				val_len := len(str)
 				total_len = total_len + val_len + len(m.Delimiter)
 			}
-			// buffer.WriteString(key)
-			// buffer.Write(m.Delimiter)
-			// for _, str := range value {
-			// buffer.WriteString(str)
-			// buffer.Write(m.Delimiter)
-			// }
-			// buffer.Write(m.Delimiter)
-
 			// Create headerline
 			headerline := make([]byte, len(key)+len(m.Delimiter)+total_len+len(m.Delimiter))
 			// Copy key to headerline
@@ -157,11 +151,13 @@ func (m *Message) Generate() (*Message, error) {
 			// Set last delimiter
 			copy(headerline[current_pos:], m.Delimiter)
 			// Append headerline to buffer
+			// Lock the mutex to prevent datarace
 			mu.Lock()
 			buffer.Write(headerline)
 			mu.Unlock()
 		}(key, value, &buffer, &wg, &mu)
 	}
+	// Wait for all goroutines to finish
 	wg.Wait()
 	// Create body
 	buffer.Write(header_delimiter)
