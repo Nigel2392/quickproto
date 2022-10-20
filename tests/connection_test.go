@@ -29,13 +29,16 @@ func TestConnection(t *testing.T) {
 	c := client.New(IP, Port, &conf)
 	c.Connect()
 	msg := quickproto.NewMessage(c.Delimiter, c.Use_Base64)
+	// Add headers to message
 	msg.AddHeader("Test", "Test")
 	msg.AddHeader("Test2", "Test2")
 	msg.AddHeader("Test3", "Test3")
+	// Add files to message
 	msg.AddRawFile("test.txt", []byte("Hello World"))
 	msg.AddRawFile("test2.txt", []byte("Hello World"))
 	msg.AddRawFile("test3.txt", []byte("Hello World"))
-	msg.Body = []byte("Hello World")
+	// Add body to message
+	msg.AddContent("Hello World")
 	c.Write(msg)
 	newmsg, _ := c.Read()
 

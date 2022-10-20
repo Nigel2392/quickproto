@@ -118,8 +118,8 @@ func (m *Message) Parse() (*Message, error) {
 	// 	return m, errors.New("message has already been parsed")
 	// }
 	header_delimiter := m.HeaderDelimiter()
-	body_delimiter := m.BodyDelimiter()
 	file_delimiter := m.FileDelimiter()
+	body_delimiter := m.BodyDelimiter()
 	ending_delimiter := m.EndingDelimiter()
 	// Split data into headers and body
 	datalist := bytes.SplitN(m.Data, body_delimiter, 2)
@@ -127,6 +127,7 @@ func (m *Message) Parse() (*Message, error) {
 		return nil, errors.New("invalid message sent")
 	}
 	// Get headers from m.Data
+	// Split headers into key/value pairs
 	headers := bytes.Split(datalist[0], header_delimiter)
 	var wg sync.WaitGroup
 	var mu sync.Mutex
@@ -138,9 +139,11 @@ func (m *Message) Parse() (*Message, error) {
 			// Split header into key and values
 			head := bytes.Split(header, m.Delimiter)
 			str_list := make([]string, 0)
+			// Set multiple values for each key
 			for _, byt := range head[1:] {
 				str_list = append(str_list, string(byt))
 			}
+			// Set key and values, lock for thread safety
 			mu.Lock()
 			m.Headers[string(head[0])] = str_list
 			mu.Unlock()
@@ -252,6 +255,7 @@ func (m *Message) Generate() (*Message, error) {
 	var bodybuffer bytes.Buffer
 	wg.Add(len(m.Files))
 	for _, file := range m.Files {
+		// Write the file to the body
 		go func(file MessageFile, buffer *bytes.Buffer, wg *sync.WaitGroup, mu *sync.Mutex) {
 			defer wg.Done()
 			// Create buffer for length of current file line
@@ -261,6 +265,7 @@ func (m *Message) Generate() (*Message, error) {
 			encoder.Write(file.Data)
 			encoder.Close()
 			b64_file_data := b64_buffer.Bytes()
+			// Get size of nescessary file data buffer
 			total_len := len(file.Name) + len(m.HeaderDelimiter()) + len(b64_file_data) + len(m.FileDelimiter())
 			// Create fileline
 			fileline := make([]byte, total_len)
@@ -281,12 +286,13 @@ func (m *Message) Generate() (*Message, error) {
 	wg.Wait()
 	// Append body to buffer
 	bodybuffer.Write(m.Body)
-	// Encode body
 	if m.Use_Base64 {
+		// If base64 encoding is set, create buffer and encode body
 		buf := make([]byte, base64.StdEncoding.EncodedLen(bodybuffer.Len()))
 		base64.StdEncoding.Encode(buf, bodybuffer.Bytes())
 		buffer.Write(buf)
 	} else {
+		// Else write body to buffer
 		buffer.Write(bodybuffer.Bytes())
 	}
 	// Write ending delimiter to buffer

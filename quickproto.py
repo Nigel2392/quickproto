@@ -3,6 +3,8 @@ import base64
 import threading
 import socket
 
+import os
+
 class DataMissingError(Exception):
     pass
 
@@ -15,6 +17,10 @@ class DelimiterMixin:
         return self.DELIMITER + self.DELIMITER
 
     @property
+    def DELIMITER_FILE(self) -> bytes:
+        return self.DELIMITER_BODY + self.DELIMITER_HEADER
+
+    @property
     def DELIMITER_BODY(self) -> bytes:
         return self.DELIMITER_HEADER + self.DELIMITER_HEADER
     
@@ -22,20 +28,32 @@ class DelimiterMixin:
     def DELIMITER_END(self) -> bytes:
         return self.DELIMITER_BODY + self.DELIMITER_BODY
 
+class MessageFile:
+    def __init__(self, name, data):
+        self.name: str = name
+        self.data: bytes = data
 
+    def __str__(self):
+        return str(self.name)
+
+    def __repr__(self):
+        return f"MessageFile({self.name}, has_data: {not not self.data})"
+        
 class Message(DelimiterMixin):
     HEADERS: dict[str, list[str]]
     BODY: bytes
     _data: bytes
     DELIMITER: bytes
     use_B64: bool
+    FILES = dict[str, MessageFile]
 
-    def __init__(self, headers: dict[str, list[str]] = None, body: bytes = None, delimiter: bytes=b"$", use_b64: bool=False, raw: bytes=None) -> None:
+    def __init__(self, headers: dict[str, list[str]] = None, body: bytes = None, files={}, delimiter: bytes=b"$", use_b64: bool=False, raw: bytes=None) -> None:
         super().__init__(delimiter)
         self.HEADERS = headers
         self.BODY = body
         self._data = raw
         self.use_B64 = use_b64
+        self.FILES = files
 
     def AddHeader(self, key: str, value: str) -> None:
         self.HEADERS[key].append(value)
@@ -43,6 +61,12 @@ class Message(DelimiterMixin):
     def GetHeader(self, key: str) -> list[str]:
         return self.HEADERS[key]
 
+    def AddFile(self, name: str, data: bytes, mfile: MessageFile = None):
+        if mfile is None:
+            mfile = MessageFile(name, data)
+            self.FILES[name] = mfile
+        else:
+            self.FILES[name] = mfile
 
     def Parse(self):
         if self._data is None:
@@ -57,7 +81,18 @@ class Message(DelimiterMixin):
                 header_dict[curr_key].append(value.decode('utf-8'))
         body = body[:-len(self.DELIMITER_END)]
         if self.use_B64:
-            self.BODY = base64.b64decode(body)
+            body = base64.b64decode(body)
+
+        # Split files from request
+        data = body.split(self.DELIMITER_FILE)
+        body = data[len(data)-1]
+        files = data[:len(data)-1]
+        for file in files:
+            name, data = file.split(self.DELIMITER_HEADER, 1)
+            fdata = base64.b64decode(data)
+            fname = name.decode('utf-8')
+            self.FILES[fname] = MessageFile(fname, fdata)
+
         self.HEADERS = header_dict
         self.BODY = body
         return self.HEADERS, self.BODY
@@ -74,10 +109,9 @@ class Message(DelimiterMixin):
             data += delim
 
         data += self.DELIMITER_HEADER
-        if self.use_B64:
-            data += base64.b64encode(self.BODY)
-        else:
-            data += self.BODY
+        for _, file in self.FILES.items():
+            data += file.name.encode('utf-8') + self.DELIMITER_HEADER
+            data += base64.b64encode(file.data) + self.DELIMITER_FILE
         data += self.DELIMITER_END
         self._data = data
         return data
@@ -136,10 +170,11 @@ class Server(DelimiterMixin):
 if __name__ == "__main__":
     body = "BODY"*3
     msg = Message(headers={"key": ["value", "value", "value", "value1"]}, body=bytes(body.encode('utf-8')))
+    msg.AddFile("test.txt", b"test")
+    msg.AddFile("test2.txt", b"test2")
+    msg.AddFile("test3.txt", b"test3")
     msg.Generate()
-    print(msg._data)
     msg.Parse()
-    print(msg.HEADERS, msg.BODY)
 
     def startserver():
         server = Server("localhost", 1234, b"$")
@@ -150,5 +185,8 @@ if __name__ == "__main__":
     client = Client("localhost", 1234, b"$")
     client.Send(msg)
     msg = client.Recv()
-    print(msg.HEADERS, msg.BODY)
+    print(msg._data)
+    print(msg.HEADERS, msg.BODY, msg.FILES)
+    [print(file.name, not not file.data) for k, file in msg.FILES.items()]
+    os._exit(0)
 
