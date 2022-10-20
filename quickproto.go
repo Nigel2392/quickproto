@@ -178,6 +178,7 @@ func (m *Message) Parse() (*Message, error) {
 				return
 			}
 			file_name := string(file_data[0])
+			// Data should always be base64 encoded!
 			b64_file_data := file_data[1]
 			buf := bytes.NewBuffer(b64_file_data)
 			decoder := base64.NewDecoder(base64.StdEncoding, buf)
