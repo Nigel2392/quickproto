@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"errors"
+	"io"
 	"sync"
 )
 
@@ -15,6 +16,10 @@ type Config struct {
 	BufSize   int
 }
 
+type SendConstraint interface {
+	string | []byte
+}
+
 // A Message is a protocol message.
 type Message struct {
 	Data       []byte
@@ -22,6 +27,7 @@ type Message struct {
 	Headers    map[string][]string
 	Body       []byte
 	Use_Base64 bool
+	Files      []MessageFile
 	// Parsed    bool
 	// Generated bool
 }
@@ -34,6 +40,7 @@ func NewMessage(delimiter []byte, use_b64 bool) *Message {
 		Headers:    make(map[string][]string),
 		Body:       []byte{},
 		Use_Base64: use_b64,
+		Files:      make([]MessageFile, 0),
 		// Parsed:    false,
 		// Generated: false,
 	}
@@ -48,8 +55,50 @@ func (m *Message) AddHeader(key string, value string) {
 	}
 }
 
+func (m *Message) AddContent(content any) error {
+	switch content := content.(type) {
+	case string:
+		m.Body = append(m.Body, []byte(content)...)
+	case []byte:
+		m.Body = append(m.Body, content...)
+	default:
+		return errors.New("invalid content type")
+	}
+	return nil
+}
+
+func (m *Message) AddFile(file MessageFile) {
+	m.Files = append(m.Files, file)
+}
+
+func (m *Message) AddRawFile(Name string, Data []byte) {
+	m.Files = append(m.Files, MessageFile{Name: Name, Data: Data})
+}
+
+// Normal delimiter example:
+// $
+// Header delimiter example:
+// $$
+// Body delimiter example:
+// $$$$
+// File delimiter example:
+// $$$$$$
+// Ending delimiter example:
+// $$$$$$$$
+
+// Splitting order
+// 1. Split body and head
+//	    a. Split head into key/value pairs
+//	    b. Split key/value pairs into key and values
+// 2. Split files from body
+//	    a. Split files into file name and data
+
 func (m *Message) HeaderDelimiter() []byte {
 	return append(m.Delimiter, m.Delimiter...)
+}
+
+func (m *Message) FileDelimiter() []byte {
+	return append(m.BodyDelimiter(), m.HeaderDelimiter()...)
 }
 
 func (m *Message) BodyDelimiter() []byte {
@@ -70,6 +119,7 @@ func (m *Message) Parse() (*Message, error) {
 	// }
 	header_delimiter := m.HeaderDelimiter()
 	body_delimiter := m.BodyDelimiter()
+	file_delimiter := m.FileDelimiter()
 	ending_delimiter := m.EndingDelimiter()
 	// Split data into headers and body
 	datalist := bytes.SplitN(m.Data, body_delimiter, 2)
@@ -100,15 +150,37 @@ func (m *Message) Parse() (*Message, error) {
 	// Decode base64 encoded body
 	var body []byte
 	var err error
-	datalist[1] = bytes.Trim(datalist[1], string(ending_delimiter))
+	full_body := bytes.Trim(datalist[1], string(ending_delimiter))
 	if m.Use_Base64 {
-		b64 := datalist[1]
-		body, err = base64.StdEncoding.DecodeString(string(b64))
+		buf := bytes.NewBuffer(full_body)
+		decoder := base64.NewDecoder(base64.StdEncoding, buf)
+		full_body, err = io.ReadAll(decoder)
 		if err != nil {
-			return nil, errors.New("invalid base64 encoded body")
+			return nil, err
 		}
-	} else {
-		body = datalist[1]
+		// full_body, err = base64.StdEncoding.DecodeString(string(full_body))
+		// if err != nil {
+		// return nil, err
+		// }
+	}
+	body_data := bytes.Split(full_body, file_delimiter)
+	// Extract body from body_data
+	body = body_data[len(body_data)-1]
+	// Remove body from body_data
+	body_data = body_data[:len(body_data)-1]
+	// Extract files from body_data
+	wg.Add(len(body_data))
+	for _, file := range body_data {
+		go func(file []byte, wg *sync.WaitGroup, mu *sync.Mutex) {
+			defer wg.Done()
+			file_data := bytes.Split(file, m.Delimiter)
+			if len(file_data) != 2 {
+				return
+			}
+			mu.Lock()
+			m.Files = append(m.Files, MessageFile{Name: string(file_data[0]), Data: file_data[1]})
+			mu.Unlock()
+		}(file, &wg, &mu)
 	}
 	wg.Wait()
 	m.Body = body
@@ -167,12 +239,42 @@ func (m *Message) Generate() (*Message, error) {
 	wg.Wait()
 	// Create body
 	buffer.Write(header_delimiter)
-	if m.Use_Base64 {
-		b64 := base64.StdEncoding.EncodeToString(m.Body)
-		buffer.WriteString(b64)
-	} else {
-		buffer.Write(m.Body)
+	// Get files
+	var bodybuffer bytes.Buffer
+	wg.Add(len(m.Files))
+	for _, file := range m.Files {
+		go func(file MessageFile, buffer *bytes.Buffer, wg *sync.WaitGroup, mu *sync.Mutex) {
+			defer wg.Done()
+			// Create buffer for length of current file line
+			total_len := len(file.Name) + len(m.HeaderDelimiter()) + len(file.Data) + len(m.FileDelimiter())
+			// Create fileline
+			fileline := make([]byte, total_len)
+			// Copy name to fileline
+			copy(fileline, file.Name)
+			copy(fileline[len(file.Name):], m.HeaderDelimiter())
+			// Copy data to fileline
+			copy(fileline[len(file.Name)+len(m.HeaderDelimiter()):], file.Data)
+			copy(fileline[len(file.Name)+len(m.HeaderDelimiter())+len(file.Data):], m.FileDelimiter())
+			// Append fileline to buffer
+			// Lock the mutex to prevent datarace
+			mu.Lock()
+			bodybuffer.Write(fileline)
+			mu.Unlock()
+		}(file, &buffer, &wg, &mu)
 	}
+	// Wait for all goroutines to finish
+	wg.Wait()
+	// Append body to buffer
+	bodybuffer.Write(m.Body)
+	// Encode body
+	if m.Use_Base64 {
+		buf := make([]byte, base64.StdEncoding.EncodedLen(bodybuffer.Len()))
+		base64.StdEncoding.Encode(buf, bodybuffer.Bytes())
+		buffer.Write(buf)
+	} else {
+		buffer.Write(bodybuffer.Bytes())
+	}
+	// Write ending delimiter to buffer
 	buffer.Write(m.EndingDelimiter())
 	m.Data = buffer.Bytes()
 	// m.Generated = true
