@@ -9,6 +9,12 @@ import (
 
 var STANDARD_DELIM []byte = []byte("$")
 
+type Config struct {
+	Delimiter []byte
+	UseBase64 bool
+	BufSize   int
+}
+
 // A Message is a protocol message.
 type Message struct {
 	Data       []byte

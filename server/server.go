@@ -16,14 +16,14 @@ type Server struct {
 	BUF_SIZE   int
 }
 
-func NewServer(ip string, port int, use_b64 bool, delim []byte, buf_size int) *Server {
+func New(ip string, port int, conf *quickproto.Config) *Server {
 	return &Server{
 		IP:         ip,
 		PORT:       port,
 		Listener:   nil,
-		Use_Base64: use_b64,
-		Delimiter:  delim,
-		BUF_SIZE:   buf_size,
+		Use_Base64: conf.UseBase64,
+		Delimiter:  conf.Delimiter,
+		BUF_SIZE:   conf.BufSize,
 	}
 }
 

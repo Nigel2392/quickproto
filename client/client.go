@@ -16,14 +16,14 @@ type Client struct {
 	BUF_SIZE   int
 }
 
-func NewClient(ip string, port int, use_b64 bool, delim []byte, buf_size int) *Client {
+func New(ip string, port int, conf *quickproto.Config) *Client {
 	return &Client{
 		IP:         ip,
 		PORT:       port,
 		Conn:       nil,
-		Use_Base64: use_b64,
-		Delimiter:  delim,
-		BUF_SIZE:   buf_size,
+		Use_Base64: conf.UseBase64,
+		Delimiter:  conf.Delimiter,
+		BUF_SIZE:   conf.BufSize,
 	}
 }
 
