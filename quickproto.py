@@ -3,8 +3,6 @@ import base64
 import threading
 import socket
 
-import os
-
 class DataMissingError(Exception):
     pass
 
@@ -28,17 +26,18 @@ class DelimiterMixin:
     def DELIMITER_END(self) -> bytes:
         return self.DELIMITER_BODY + self.DELIMITER_BODY
 
-class MessageFile:
-    def __init__(self, name, data):
+class MessageFile(DelimiterMixin):
+    def __init__(self, name, data, delimiter: bytes=b"$"):
+        super().__init__(delimiter)
         self.name: str = name
         self.data: bytes = data
 
     def __str__(self):
-        return str(self.name)
+        return f"MessageFile({self.name}, has_data: {not not self.data})"
 
     def __repr__(self):
-        return f"MessageFile({self.name}, has_data: {not not self.data})"
-        
+        return f"MessageFile(\"{self.name}\")"
+
 class Message(DelimiterMixin):
     HEADERS: dict[str, list[str]]
     BODY: bytes
@@ -118,10 +117,11 @@ class Message(DelimiterMixin):
 
 
 class Client(DelimiterMixin):
-    def __init__(self, host: str, port: int, delimiter: bytes) -> None:
+    def __init__(self, host: str, port: int, delimiter: bytes = "$", buf_size: int = 2048) -> None:
         super().__init__(delimiter)
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.connect((host, port))
+        self.BUF_SIZE = buf_size
 
     def Send(self, msg: Message):
         self.sock.send(msg.Generate())
@@ -129,7 +129,7 @@ class Client(DelimiterMixin):
     def Recv(self) -> Message:
         data = b""
         while True:
-            data += self.sock.recv(1024)
+            data += self.sock.recv(self.BUF_SIZE)
             if data.endswith(self.DELIMITER_END):
                 break
         msg = Message(raw=data)
@@ -137,13 +137,14 @@ class Client(DelimiterMixin):
         return msg
 
 class Server(DelimiterMixin):
-    def __init__(self, host: str, port: int, delimiter: bytes) -> None:
+    def __init__(self, host: str, port: int, delimiter: bytes = "$", buf_size: int = 2048) -> None:
         super().__init__(delimiter)
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.bind((host, port))
+        self.BUF_SIZE = buf_size
 
-    def Listen(self):
-        self.sock.listen()
+    def Listen(self, max_connections: int = 5):
+        self.sock.listen(max_connections)
         while True:
             client, addr = self.sock.accept()
             self.handle_client(client, addr)
@@ -152,7 +153,7 @@ class Server(DelimiterMixin):
         while True:
             data: bytes = b""
             while True:
-                data += client.recv(1024)
+                data += client.recv(self.BUF_SIZE)
                 if data.endswith(self.DELIMITER_END):
                     break
             msg = Message(raw=data, delimiter=self.DELIMITER)
@@ -180,13 +181,11 @@ if __name__ == "__main__":
         server = Server("localhost", 1234, b"$")
         server.Listen()
 
-    threading.Thread(target=startserver).start()
-    
+    t1 = threading.Thread(target=startserver)
+    t1.start()
     client = Client("localhost", 1234, b"$")
     client.Send(msg)
     msg = client.Recv()
     print(msg._data)
     print(msg.HEADERS, msg.BODY, msg.FILES)
     [print(file.name, not not file.data) for k, file in msg.FILES.items()]
-    os._exit(0)
-
