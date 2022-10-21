@@ -3,6 +3,7 @@ package quickproto
 import (
 	"bytes"
 	"encoding/base64"
+	"encoding/hex"
 	"errors"
 	"io"
 	"strings"
@@ -45,13 +46,11 @@ func Base64Decoding(data []byte) ([]byte, error) {
 }
 
 func Base16Encoding(data []byte) []byte {
-	// return []byte(hex.EncodeToString(data))
-	return data
+	return []byte(hex.EncodeToString(data))
 }
 
 func Base16Decoding(data []byte) ([]byte, error) {
-	// return hex.DecodeString(string(data))
-	return data, nil
+	return hex.DecodeString(string(data))
 }
 
 type Config struct {

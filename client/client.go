@@ -46,7 +46,7 @@ func (c *Client) Terminate() error {
 }
 
 func (c *Client) Read() (*quickproto.Message, error) {
-	return quickproto.ReadConn(c.Conn, c.Delimiter, c.UseEncoding, c.BUF_SIZE)
+	return quickproto.ReadConn(c.Conn, c.Delimiter, c.UseEncoding, c.BUF_SIZE, c.Enc_func, c.Dec_func)
 }
 
 func (c *Client) Write(msg *quickproto.Message) error {

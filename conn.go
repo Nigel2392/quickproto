@@ -5,8 +5,8 @@ import (
 	"net"
 )
 
-func ReadConn(conn net.Conn, delimiter []byte, use_encoding bool, buf_size int) (*Message, error) {
-	msg := NewMessage(delimiter, use_encoding, Base64Encoding, Base64Decoding)
+func ReadConn(conn net.Conn, delimiter []byte, use_encoding bool, buf_size int, enc_func func([]byte) []byte, dec_func func([]byte) ([]byte, error)) (*Message, error) {
+	msg := NewMessage(delimiter, use_encoding, enc_func, dec_func)
 	buf := make([]byte, buf_size)
 	var data []byte
 	// read until ending delimiter is found

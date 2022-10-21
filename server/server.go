@@ -50,7 +50,7 @@ func (s *Server) Accept() (net.Conn, error) {
 }
 
 func (s *Server) Read(conn net.Conn) (*quickproto.Message, error) {
-	return quickproto.ReadConn(conn, s.Delimiter, s.UseEncoding, s.BUF_SIZE)
+	return quickproto.ReadConn(conn, s.Delimiter, s.UseEncoding, s.BUF_SIZE, s.Enc_func, s.Dec_func)
 }
 
 func (s *Server) Write(conn net.Conn, msg *quickproto.Message) error {

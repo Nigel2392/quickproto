@@ -76,7 +76,7 @@ func TestConnection(t *testing.T) {
 		for _, DELIMITER := range DELIMITER_LIST {
 			ct++
 
-			conf := quickproto.NewConfig([]byte(DELIMITER), true, 2048, quickproto.Base64Encoding, quickproto.Base64Decoding)
+			conf := quickproto.NewConfig([]byte(DELIMITER), true, 2048, quickproto.Base16Encoding, quickproto.Base16Decoding)
 
 			IP := "127.0.0.1"
 			Port := 8080 + ct
