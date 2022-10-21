@@ -5,6 +5,7 @@ Supports:
 * Files (Supports multiple files)
 * Body (Can be encoded/decoded to base64)
 * Delimiters
+  * No alphabetic characters from [A-Z a-z 0-9 =]
 
 Data is split apart by the delimiter.
 
