@@ -16,6 +16,7 @@ type Server struct {
 	BUF_SIZE    int
 	Enc_func    func([]byte) []byte
 	Dec_func    func([]byte) ([]byte, error)
+	CONFIG      *quickproto.Config
 }
 
 func New(ip string, port int, conf *quickproto.Config) *Server {
@@ -28,6 +29,7 @@ func New(ip string, port int, conf *quickproto.Config) *Server {
 		BUF_SIZE:    conf.BufSize,
 		Enc_func:    conf.Enc_func,
 		Dec_func:    conf.Dec_func,
+		CONFIG:      conf,
 	}
 }
 
@@ -50,7 +52,7 @@ func (s *Server) Accept() (net.Conn, error) {
 }
 
 func (s *Server) Read(conn net.Conn) (*quickproto.Message, error) {
-	return quickproto.ReadConn(conn, s.Delimiter, s.UseEncoding, s.BUF_SIZE, s.Enc_func, s.Dec_func)
+	return quickproto.ReadConn(conn, s.CONFIG)
 }
 
 func (s *Server) Write(conn net.Conn, msg *quickproto.Message) error {

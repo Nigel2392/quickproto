@@ -16,6 +16,7 @@ type Client struct {
 	BUF_SIZE    int
 	Enc_func    func([]byte) []byte
 	Dec_func    func([]byte) ([]byte, error)
+	CONFIG      *quickproto.Config
 }
 
 func New(ip string, port int, conf *quickproto.Config) *Client {
@@ -28,6 +29,7 @@ func New(ip string, port int, conf *quickproto.Config) *Client {
 		BUF_SIZE:    conf.BufSize,
 		Enc_func:    conf.Enc_func,
 		Dec_func:    conf.Dec_func,
+		CONFIG:      conf,
 	}
 }
 
@@ -46,7 +48,7 @@ func (c *Client) Terminate() error {
 }
 
 func (c *Client) Read() (*quickproto.Message, error) {
-	return quickproto.ReadConn(c.Conn, c.Delimiter, c.UseEncoding, c.BUF_SIZE, c.Enc_func, c.Dec_func)
+	return quickproto.ReadConn(c.Conn, c.CONFIG)
 }
 
 func (c *Client) Write(msg *quickproto.Message) error {
