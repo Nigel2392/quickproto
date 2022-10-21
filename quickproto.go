@@ -30,14 +30,40 @@ var BANNED_DELIMITERS = []string{
 	"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z",
 }
 
+func Base64Encoding(data []byte) []byte {
+	var b64_buffer bytes.Buffer
+	encoder := base64.NewEncoder(base64.StdEncoding, &b64_buffer)
+	encoder.Write(data)
+	encoder.Close()
+	return b64_buffer.Bytes()
+}
+
+func Base64Decoding(data []byte) ([]byte, error) {
+	buf := bytes.NewBuffer(data)
+	decoder := base64.NewDecoder(base64.StdEncoding, buf)
+	return io.ReadAll(decoder)
+}
+
+func Base16Encoding(data []byte) []byte {
+	// return []byte(hex.EncodeToString(data))
+	return data
+}
+
+func Base16Decoding(data []byte) ([]byte, error) {
+	// return hex.DecodeString(string(data))
+	return data, nil
+}
+
 type Config struct {
-	Delimiter []byte
-	UseBase64 bool
-	BufSize   int
+	Delimiter   []byte
+	UseEncoding bool
+	BufSize     int
+	Enc_func    func([]byte) []byte
+	Dec_func    func([]byte) ([]byte, error)
 }
 
 // NewConfig creates a new Config.
-func NewConfig(delimiter []byte, use_base64 bool, bufsize int) *Config {
+func NewConfig(delimiter []byte, useencoding bool, bufsize int, enc_f func([]byte) []byte, dec_f func([]byte) ([]byte, error)) *Config {
 	if delimiter == nil {
 		delimiter = STANDARD_DELIM
 	}
@@ -47,40 +73,46 @@ func NewConfig(delimiter []byte, use_base64 bool, bufsize int) *Config {
 		}
 	}
 	return &Config{
-		Delimiter: STANDARD_DELIM,
-		UseBase64: true,
-		BufSize:   4096,
+		Delimiter:   delimiter,
+		UseEncoding: useencoding,
+		BufSize:     bufsize,
+		Enc_func:    enc_f,
+		Dec_func:    dec_f,
 	}
+}
+
+func (c *Config) NewMessage() *Message {
+	return NewMessage(c.Delimiter, c.UseEncoding, c.Enc_func, c.Dec_func)
 }
 
 // A Message is a protocol message.
 type Message struct {
-	Data       []byte
-	Delimiter  []byte
-	Headers    map[string][]string
-	Body       []byte
-	Use_Base64 bool
-	Files      map[string]MessageFile
+	Data        []byte
+	Delimiter   []byte
+	Headers     map[string][]string
+	Body        []byte
+	Files       map[string]MessageFile
+	UseEncoding bool
+	Enc_func    func([]byte) []byte
+	Dec_func    func([]byte) ([]byte, error)
 	// Parsed    bool
 	// Generated bool
 }
 
 // NewMessage creates a new Message.
-func NewMessage(delimiter []byte, use_b64 bool) *Message {
+func NewMessage(delimiter []byte, useencoding bool, enc_func func([]byte) []byte, dec_func func([]byte) ([]byte, error)) *Message {
 	if delimiter == nil {
 		delimiter = STANDARD_DELIM
 	}
-	if bytes.Contains(delimiter, []byte("=")) {
-		panic("delimiter cannot contain '='")
-	}
-	// Verify if delimiter is not in base64 alphabet
 	return &Message{
-		Data:       []byte{},
-		Delimiter:  delimiter,
-		Headers:    make(map[string][]string),
-		Body:       []byte{},
-		Use_Base64: use_b64,
-		Files:      make(map[string]MessageFile),
+		Data:        []byte{},
+		Delimiter:   delimiter,
+		Headers:     make(map[string][]string),
+		Body:        []byte{},
+		Files:       make(map[string]MessageFile),
+		UseEncoding: useencoding,
+		Enc_func:    enc_func,
+		Dec_func:    dec_func,
 		// Parsed:    false,
 		// Generated: false,
 	}
@@ -194,10 +226,8 @@ func (m *Message) Parse() (*Message, error) {
 	var body []byte
 	var err error
 	full_body := bytes.Trim(datalist[1], string(ending_delimiter))
-	if m.Use_Base64 {
-		buf := bytes.NewBuffer(full_body)
-		decoder := base64.NewDecoder(base64.StdEncoding, buf)
-		full_body, err = io.ReadAll(decoder)
+	if m.Enc_func != nil && m.Dec_func != nil && m.UseEncoding {
+		full_body, err = m.Dec_func(full_body)
 		if err != nil {
 			return nil, err
 		}
@@ -207,6 +237,7 @@ func (m *Message) Parse() (*Message, error) {
 	body = body_data[len(body_data)-1]
 	// Remove body from body_data
 	body_data = body_data[:len(body_data)-1]
+
 	// Extract files from body_data
 	wg.Add(len(body_data))
 	for _, file := range body_data {
@@ -217,11 +248,8 @@ func (m *Message) Parse() (*Message, error) {
 				return
 			}
 			file_name := string(file_data[0])
-			// Data should always be base64 encoded!
-			b64_file_data := file_data[1]
-			buf := bytes.NewBuffer(b64_file_data)
-			decoder := base64.NewDecoder(base64.StdEncoding, buf)
-			file_data_bytes, err := io.ReadAll(decoder)
+			// File data should always be base64 encoded!
+			file_data_bytes, err := Base16Decoding(file_data[1])
 			if err != nil {
 				return
 			}
@@ -243,8 +271,7 @@ func (m *Message) Generate() (*Message, error) {
 	var buffer bytes.Buffer
 	var wg sync.WaitGroup
 	var mu sync.Mutex
-
-	header_delimiter := append(m.Delimiter, m.Delimiter...)
+	header_delimiter := m.HeaderDelimiter()
 	// Create headers
 	for key, value := range m.Headers {
 		wg.Add(1)
@@ -292,19 +319,15 @@ func (m *Message) Generate() (*Message, error) {
 			defer wg.Done()
 			// Create buffer for length of current file line
 			// Base 64 encode file data
-			var b64_buffer bytes.Buffer
-			encoder := base64.NewEncoder(base64.StdEncoding, &b64_buffer)
-			encoder.Write(file.Data)
-			encoder.Close()
-			b64_file_data := b64_buffer.Bytes()
+			fdata := Base16Encoding(file.Data)
 			// Get size of buffer for all file data and delimiters
-			total_len := len(file.Name) + len(m.HeaderDelimiter()) + len(b64_file_data) + len(m.FileDelimiter())
+			total_len := len(file.Name) + len(m.HeaderDelimiter()) + len(fdata) + len(m.FileDelimiter())
 			fileline := make([]byte, total_len)
 			// Copy data to fileline
 			copy(fileline, file.Name)
 			copy(fileline[len(file.Name):], m.HeaderDelimiter())
-			copy(fileline[len(file.Name)+len(m.HeaderDelimiter()):], b64_file_data)
-			copy(fileline[len(file.Name)+len(m.HeaderDelimiter())+len(b64_file_data):], m.FileDelimiter())
+			copy(fileline[len(file.Name)+len(m.HeaderDelimiter()):], fdata)
+			copy(fileline[len(file.Name)+len(m.HeaderDelimiter())+len(fdata):], m.FileDelimiter())
 			// Lock the mutex to prevent datarace
 			mu.Lock()
 			// Append fileline to buffer
@@ -316,11 +339,9 @@ func (m *Message) Generate() (*Message, error) {
 	wg.Wait()
 	// Append body to buffer
 	bodybuffer.Write(m.Body)
-	if m.Use_Base64 {
-		// If base64 encoding is set, create buffer and encode body
-		buf := make([]byte, base64.StdEncoding.EncodedLen(bodybuffer.Len()))
-		base64.StdEncoding.Encode(buf, bodybuffer.Bytes())
-		buffer.Write(buf)
+	if m.Enc_func != nil && m.Dec_func != nil && m.UseEncoding {
+		// If encoding is set, create buffer and encode body
+		buffer.Write(m.Enc_func(bodybuffer.Bytes()))
 	} else {
 		// Else write body to buffer
 		buffer.Write(bodybuffer.Bytes())

@@ -12,7 +12,9 @@ import (
 
 func TestParse(t *testing.T) {
 	// Create a new message
-	msg := quickproto.NewMessage([]byte("&"), true)
+	conf := quickproto.NewConfig([]byte("&"), true, 4096, quickproto.Base64Encoding, quickproto.Base64Decoding)
+
+	msg := conf.NewMessage()
 	msg.Data = []byte("key1&value1&value2&&key2&value2&&&&Qk9EWUJPRFlCT0RZ")
 	// Test and time the parsing of the message
 	start_time := time.Now()
@@ -38,7 +40,7 @@ func TestParse(t *testing.T) {
 
 func TestGenerate(t *testing.T) {
 	// Create a new message
-	msg := quickproto.NewMessage([]byte("&"), true)
+	msg := quickproto.NewMessage([]byte("&"), true, quickproto.Base64Encoding, quickproto.Base64Decoding)
 	msg.AddHeader("key1", "value1")
 	msg.AddHeader("key1", "value2")
 	msg.AddHeader("key2", "value2")
@@ -57,7 +59,7 @@ func TestGenerate(t *testing.T) {
 
 func TestParseLong(t *testing.T) {
 	// Create a new message
-	msg := quickproto.NewMessage([]byte("&"), true)
+	msg := quickproto.NewMessage([]byte("&"), true, quickproto.Base64Encoding, quickproto.Base64Decoding)
 	body := []byte(strings.Repeat("BODYBODYBODY_", 10000000)) // 13 * 10000000 = bytes (130 MB)
 	b64 := base64.StdEncoding.EncodeToString(body)
 	msg.Data = []byte("key1&value1&&key2&value2&&&&" + b64)
@@ -82,7 +84,7 @@ func TestParseLong(t *testing.T) {
 
 func TestGenerateLong(t *testing.T) {
 	// Create a new message
-	msg := quickproto.NewMessage([]byte("&"), true)
+	msg := quickproto.NewMessage([]byte("&"), true, quickproto.Base64Encoding, quickproto.Base64Decoding)
 	msg.Headers["key1"] = []string{"value1"}
 	msg.Headers["key2"] = []string{"value2"}
 	// Create a 130 MB body
@@ -102,7 +104,7 @@ func TestGenerateLong(t *testing.T) {
 
 func TestParse_NoB64(t *testing.T) {
 	// Create a new message
-	msg := quickproto.NewMessage([]byte("&"), false)
+	msg := quickproto.NewMessage([]byte("&"), false, quickproto.Base64Encoding, quickproto.Base64Decoding)
 	// msg.Data = []byte("key1&value1&&key2&value2&&&&Qk9EWUJPRFlCT0RZ")
 	msg.Data = []byte("key1&value1&&key2&value2&&&&BODYBODYBODY")
 	// Test and time the parsing of the message
@@ -126,7 +128,7 @@ func TestParse_NoB64(t *testing.T) {
 
 func TestGenerate_NoB64(t *testing.T) {
 	// Create a new message
-	msg := quickproto.NewMessage([]byte("&"), false)
+	msg := quickproto.NewMessage([]byte("&"), false, quickproto.Base64Encoding, quickproto.Base64Decoding)
 	msg.Headers["key1"] = []string{"value1"}
 	msg.Headers["key2"] = []string{"value2"}
 	msg.Body = []byte("BODYBODYBODY")
@@ -144,7 +146,7 @@ func TestGenerate_NoB64(t *testing.T) {
 
 func TestParseLong_NoB64(t *testing.T) {
 	// Create a new message
-	msg := quickproto.NewMessage([]byte("&"), false)
+	msg := quickproto.NewMessage([]byte("&"), false, quickproto.Base64Encoding, quickproto.Base64Decoding)
 	body := []byte(strings.Repeat("BODYBODYBODY_", 10000000)) // 13 * 10000000 = bytes (130 MB)
 	// b64 := base64.StdEncoding.EncodeToString(body)
 	msg.Data = []byte("key1&value1&&key2&value2&&&&" + string(body))
@@ -169,7 +171,7 @@ func TestParseLong_NoB64(t *testing.T) {
 
 func TestGenerateLong_NoB64(t *testing.T) {
 	// Create a new message
-	msg := quickproto.NewMessage([]byte("&"), false)
+	msg := quickproto.NewMessage([]byte("&"), false, quickproto.Base64Encoding, quickproto.Base64Decoding)
 	msg.Headers["key1"] = []string{"value1"}
 	msg.Headers["key2"] = []string{"value2"}
 	// Create a 130 MB body
@@ -189,7 +191,7 @@ func TestGenerateLong_NoB64(t *testing.T) {
 }
 
 func TestGenerateAndParse(t *testing.T) {
-	msg := quickproto.NewMessage([]byte("###"), true)
+	msg := quickproto.NewMessage([]byte("###"), true, quickproto.Base64Encoding, quickproto.Base64Decoding)
 	msg.AddHeader("key1", "value1")
 	msg.AddHeader("key1", "value2")
 	msg.AddHeader("key1", "value3")

@@ -8,22 +8,26 @@ import (
 )
 
 type Client struct {
-	IP         string
-	PORT       int
-	Conn       net.Conn
-	Use_Base64 bool
-	Delimiter  []byte
-	BUF_SIZE   int
+	IP          string
+	PORT        int
+	Conn        net.Conn
+	UseEncoding bool
+	Delimiter   []byte
+	BUF_SIZE    int
+	Enc_func    func([]byte) []byte
+	Dec_func    func([]byte) ([]byte, error)
 }
 
 func New(ip string, port int, conf *quickproto.Config) *Client {
 	return &Client{
-		IP:         ip,
-		PORT:       port,
-		Conn:       nil,
-		Use_Base64: conf.UseBase64,
-		Delimiter:  conf.Delimiter,
-		BUF_SIZE:   conf.BufSize,
+		IP:          ip,
+		PORT:        port,
+		Conn:        nil,
+		UseEncoding: conf.UseEncoding,
+		Delimiter:   conf.Delimiter,
+		BUF_SIZE:    conf.BufSize,
+		Enc_func:    conf.Enc_func,
+		Dec_func:    conf.Dec_func,
 	}
 }
 
@@ -42,7 +46,7 @@ func (c *Client) Terminate() error {
 }
 
 func (c *Client) Read() (*quickproto.Message, error) {
-	return quickproto.ReadConn(c.Conn, c.Delimiter, c.Use_Base64, c.BUF_SIZE)
+	return quickproto.ReadConn(c.Conn, c.Delimiter, c.UseEncoding, c.BUF_SIZE)
 }
 
 func (c *Client) Write(msg *quickproto.Message) error {

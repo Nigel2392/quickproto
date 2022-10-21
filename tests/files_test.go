@@ -9,7 +9,7 @@ import (
 
 func TestMessageFiles(t *testing.T) {
 	// Create a new message
-	msg := quickproto.NewMessage([]byte("&"), false)
+	msg := quickproto.NewMessage([]byte("&"), false, quickproto.Base16Encoding, quickproto.Base16Decoding)
 	msg.Headers["key1"] = []string{"value1", "value2", "value3"}
 	msg.Headers["key2"] = []string{"value2"}
 	msg.Body = []byte("BODYBODYBODY")
@@ -21,7 +21,7 @@ func TestMessageFiles(t *testing.T) {
 
 	msg.Generate()
 
-	newmsg := quickproto.NewMessage([]byte("&"), false)
+	newmsg := quickproto.NewMessage([]byte("&"), false, quickproto.Base16Encoding, quickproto.Base16Decoding)
 	newmsg.Data = msg.Data
 	newmsg.Parse()
 

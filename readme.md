@@ -3,7 +3,9 @@ Fast golang protocol parser
 Supports:
 * Headers (Support listed values, IE: Key=[Value, Value, Value])
 * Files (Supports multiple files)
-* Body (Can be encoded/decoded to base64)
+* Body (Can be encoded/decoded to any type)
+  * !WARNING! !Make sure your delimiter not in the encoding's alphabet!
+  * !WARNING! !Make sure your delimiter is not in the message headers, body or filenames!
 * Delimiters
   * No alphabetic characters from [A-Z a-z 0-9 =]
 
@@ -21,3 +23,4 @@ Example:
 ```
 key1$value1&value2$$key2$value2$$$$BODYBODYBODY
 ```
+
