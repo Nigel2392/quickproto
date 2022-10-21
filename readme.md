@@ -2,6 +2,7 @@ Fast golang protocol parser
 
 Supports:
 * Headers (Support listed values, IE: Key=[Value, Value, Value])
+* Files (Supports multiple files)
 * Body (Can be encoded/decoded to base64)
 * Delimiters
 

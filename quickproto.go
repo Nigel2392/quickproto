@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"io"
+	"strings"
 	"sync"
 )
 
@@ -19,12 +20,37 @@ import (
 // Ending delimiter example:
 // $$$$$$$$
 
+// Banned delimiters include:
+// = (equal sign)
+
 var STANDARD_DELIM []byte = []byte("$")
+var BANNED_DELIMITERS = []string{
+	"=",
+	"A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z",
+	"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z",
+}
 
 type Config struct {
 	Delimiter []byte
 	UseBase64 bool
 	BufSize   int
+}
+
+// NewConfig creates a new Config.
+func NewConfig(delimiter []byte, use_base64 bool, bufsize int) *Config {
+	if delimiter == nil {
+		delimiter = STANDARD_DELIM
+	}
+	for _, d := range BANNED_DELIMITERS {
+		if bytes.Contains(delimiter, []byte(d)) {
+			panic("Delimiter contains banned characters: " + d)
+		}
+	}
+	return &Config{
+		Delimiter: STANDARD_DELIM,
+		UseBase64: true,
+		BufSize:   4096,
+	}
 }
 
 // A Message is a protocol message.
@@ -44,6 +70,9 @@ func NewMessage(delimiter []byte, use_b64 bool) *Message {
 	if delimiter == nil {
 		delimiter = STANDARD_DELIM
 	}
+	if bytes.Contains(delimiter, []byte("=")) {
+		panic("delimiter cannot contain '='")
+	}
 	// Verify if delimiter is not in base64 alphabet
 	return &Message{
 		Data:       []byte{},
@@ -57,13 +86,20 @@ func NewMessage(delimiter []byte, use_b64 bool) *Message {
 	}
 }
 
-func (m *Message) AddHeader(key string, value string) {
+func (m *Message) AddHeader(key string, value string) error {
+	if strings.Contains(key, string(m.Delimiter)) {
+		return errors.New("header key cannot contain delimiter")
+	}
+	if strings.Contains(value, string(m.Delimiter)) {
+		return errors.New("header value cannot contain delimiter")
+	}
 	_, ok := m.Headers[key]
 	if ok {
 		m.Headers[key] = append(m.Headers[key], value)
 	} else {
 		m.Headers[key] = []string{value}
 	}
+	return nil
 }
 
 func (m *Message) AddContent(content any) error {
@@ -78,12 +114,20 @@ func (m *Message) AddContent(content any) error {
 	return nil
 }
 
-func (m *Message) AddFile(file MessageFile) {
+func (m *Message) AddFile(file MessageFile) error {
+	// if strings.Contains(file.Name, string(m.Delimiter)) {
+	// return errors.New("file name contains file delimiter")
+	// }
 	m.Files[file.Name] = file
+	return nil
 }
 
-func (m *Message) AddRawFile(name string, data []byte) {
+func (m *Message) AddRawFile(name string, data []byte) error {
+	// if strings.Contains(string(name), string(m.Delimiter)) {
+	// return errors.New("file name contains file delimiter")
+	// }
 	m.Files[name] = MessageFile{Name: name, Data: data}
+	return nil
 }
 
 func (m *Message) HeaderDelimiter() []byte {
