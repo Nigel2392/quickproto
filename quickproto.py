@@ -85,12 +85,13 @@ class Message(DelimiterMixin):
         # Split files from request
         data = body.split(self.DELIMITER_FILE)
         body = data[len(data)-1]
-        files = data[:len(data)-1]
-        for file in files:
-            name, data = file.split(self.DELIMITER_HEADER, 1)
-            fdata = base64.b64decode(data)
-            fname = name.decode('utf-8')
-            self.FILES[fname] = MessageFile(fname, fdata)
+        if len(data) > 1:
+            files = data[:len(data)-1]
+            for file in files:
+                name, data = file.split(self.DELIMITER_HEADER, 1)
+                fdata = base64.b64decode(data)
+                fname = name.decode('utf-8')
+                self.FILES[fname] = MessageFile(fname, fdata)
 
         self.HEADERS = header_dict
         self.BODY = body
@@ -111,6 +112,9 @@ class Message(DelimiterMixin):
         for _, file in self.FILES.items():
             data += file.name.encode('utf-8') + self.DELIMITER_HEADER
             data += base64.b64encode(file.data) + self.DELIMITER_FILE
+        data += self.BODY
+        if self.use_B64:
+            data = base64.b64encode(data)
         data += self.DELIMITER_END
         self._data = data
         return data
@@ -159,12 +163,16 @@ class Server(DelimiterMixin):
             msg = Message(raw=data, delimiter=self.DELIMITER)
             msg.Parse()
             msg = self.handle_message(msg, client, addr)
+            if msg is None:
+                break
             self.send(msg, client)
 
     def send(self, msg: Message, client: socket.socket):
         client.send(msg.Generate())
     
     def handle_message(self, msg: Message, client: socket.socket, addr):
+        # Do something with the message
+        # Return a message to send back
         return msg
 
 
@@ -174,7 +182,7 @@ if __name__ == "__main__":
     msg.AddFile("test.txt", b"test")
     msg.AddFile("test2.txt", b"test2")
     msg.AddFile("test3.txt", b"test3")
-    msg.Generate()
+    raw_msg = msg.Generate()
     msg.Parse()
 
     def startserver():
@@ -185,7 +193,18 @@ if __name__ == "__main__":
     t1.start()
     client = Client("localhost", 1234, b"$")
     client.Send(msg)
-    msg = client.Recv()
-    print(msg._data)
-    print(msg.HEADERS, msg.BODY, msg.FILES)
+    newmsg = client.Recv()
+    print(newmsg._data)
+    print(newmsg.HEADERS, newmsg.BODY, newmsg.FILES)
     [print(file.name, not not file.data) for k, file in msg.FILES.items()]
+
+    # run some tests
+    assert newmsg.HEADERS == {"key": ["value", "value", "value", "value1"]}
+    assert newmsg.BODY == bytes(body.encode('utf-8'))
+    assert newmsg._data == raw_msg
+    assert newmsg.FILES["test.txt"].data == b"test"
+    assert newmsg.FILES["test2.txt"].data == b"test2"
+    assert newmsg.FILES["test3.txt"].data == b"test3"
+    
+    import os
+    os._exit(0)
