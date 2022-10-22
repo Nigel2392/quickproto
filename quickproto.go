@@ -31,6 +31,7 @@ var BANNED_DELIMITERS = []string{
 	"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z",
 }
 
+// Base64 encoding
 func Base64Encoding(data []byte) []byte {
 	var b64_buffer bytes.Buffer
 	encoder := base64.NewEncoder(base64.StdEncoding, &b64_buffer)
@@ -39,16 +40,19 @@ func Base64Encoding(data []byte) []byte {
 	return b64_buffer.Bytes()
 }
 
+// Base64 decoding
 func Base64Decoding(data []byte) ([]byte, error) {
 	buf := bytes.NewBuffer(data)
 	decoder := base64.NewDecoder(base64.StdEncoding, buf)
 	return io.ReadAll(decoder)
 }
 
+// Hex encoding
 func Base16Encoding(data []byte) []byte {
 	return []byte(hex.EncodeToString(data))
 }
 
+// Hex decoding
 func Base16Decoding(data []byte) ([]byte, error) {
 	return hex.DecodeString(string(data))
 }
