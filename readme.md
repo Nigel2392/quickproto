@@ -24,3 +24,49 @@ Example:
 key1$value1&value2$$key2$value2$$$$BODYBODYBODY
 ```
 
+Usage:
+
+Initialize a config like so:
+```go
+conf := quickproto.NewConfig([]byte(DELIMITER), USE_ENCODING, USE_CRYPTO, 2048, quickproto.Base16Encoding, quickproto.Base16Decoding)
+```
+Then you can simply run a server with the following lines of code:
+```go
+s := server.New(IP, Port, conf)
+s.Listen()
+for {
+	conn, client, err := s.Accept()
+	msg, err := s.Read(client)
+}
+```
+
+Or create a client like so:
+```go
+c := client.New(IP, Port, conf, nil)
+c.Connect()
+msg := c.CONFIG.NewMessage() // Use config to generate message to omit providing arguments
+msg.AddHeader("Test", "Test")
+msg.AddHeader("Test2", "Test2")
+msg.AddHeader("Test3", "Test3")
+msg.AddRawFile("test.txt", []byte("Hello World"))
+msg.AddRawFile("test2.txt", []byte("Hello World"))
+msg.AddRawFile("test3.txt", []byte("Hello World"))
+msg.AddContent("Hello World")
+c.Write(msg)
+```
+
+It is also possible to broadcast to multiple clients at once, 
+simply use `s.Broadcast(msg)`.
+
+To capture broadcasts on the client side and interact with them, run a goroutine like so:
+```go
+func OnBroadcast(msg *quickproto.Message) {
+  // Do something with the message
+}
+
+c := client.New(IP, Port, conf, nil)
+c.Connect()
+c.OnMessage = OnBroadcast
+go c.Listen()
+```
+

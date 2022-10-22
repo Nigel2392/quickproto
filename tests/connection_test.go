@@ -86,9 +86,9 @@ func TestConnection(t *testing.T) {
 				go func(t *testing.T, s *server.Server) {
 					s.Listen()
 					for {
-						conn, client, _ := s.Accept()
+						_, client, _ := s.Accept()
 						msg, err := s.Read(client)
-						t.Log("Server key:", s.Clients[conn.RemoteAddr().String()].Key)
+						t.Log("Server key:", client.Key)
 						if err != nil {
 							t.Error(err)
 						}

@@ -20,11 +20,11 @@ type Client struct {
 	Enc_func    func([]byte) []byte
 	Dec_func    func([]byte) ([]byte, error)
 	CONFIG      *quickproto.Config
-	OnMessage   func(*quickproto.Message) error
+	OnMessage   func(*quickproto.Message)
 	AesKey      *[32]byte
 }
 
-func New(ip string, port int, conf *quickproto.Config, onmessage func(*quickproto.Message) error) *Client {
+func New(ip string, port int, conf *quickproto.Config, onmessage func(*quickproto.Message)) *Client {
 	return &Client{
 		IP:          ip,
 		PORT:        port,
@@ -85,10 +85,7 @@ func (c *Client) Listen() error {
 		if err != nil {
 			break
 		}
-		err = c.OnMessage(msg)
-		if err != nil {
-			break
-		}
+		c.OnMessage(msg)
 	}
 	return errors.New("connection closed")
 }
