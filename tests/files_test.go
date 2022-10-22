@@ -1,7 +1,6 @@
 package tests
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/Nigel2392/quickproto"
@@ -58,5 +57,4 @@ func TestMessageFiles(t *testing.T) {
 	if newmsg.Headers["key2"][0] != "value2" {
 		t.Error("Expected key2 to be value2")
 	}
-	fmt.Println(string(msg.Data))
 }

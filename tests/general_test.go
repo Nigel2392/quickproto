@@ -2,7 +2,6 @@ package tests
 
 import (
 	"encoding/base64"
-	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -12,16 +11,16 @@ import (
 
 func TestParse(t *testing.T) {
 	// Create a new message
-	conf := quickproto.NewConfig([]byte("&"), true, 4096, quickproto.Base64Encoding, quickproto.Base64Decoding)
+	conf := quickproto.NewConfig([]byte("&"), true, false, 4096, quickproto.Base64Encoding, quickproto.Base64Decoding)
 
 	msg := conf.NewMessage()
 	msg.Data = []byte("key1&value1&value2&&key2&value2&&&&Qk9EWUJPRFlCT0RZ")
 	// Test and time the parsing of the message
 	start_time := time.Now()
 	_, err := msg.Parse()
-	fmt.Println("(SHORT B64) Parse time:", time.Since(start_time))
+	t.Log("(SHORT B64) Parse time:", time.Since(start_time))
 	if err != nil {
-		fmt.Println(err)
+		t.Log(err)
 	}
 	// Validate the message
 	if msg.Headers["key1"][0] != "value1" {
@@ -48,7 +47,7 @@ func TestGenerate(t *testing.T) {
 	// Test and time the parsing of the message
 	start_time := time.Now()
 	msg.Generate()
-	fmt.Println("(SHORT B64) Generation time:", time.Since(start_time))
+	t.Log("(SHORT B64) Generation time:", time.Since(start_time))
 	// Validate the message
 	if string(msg.Data) != "key1&value1&value2&&key2&value2&&&&Qk9EWUJPRFlCT0RZ&&&&&&&&" {
 		if string(msg.Data) != "key2&value2&&key1&value1&value2&&&&Qk9EWUJPRFlCT0RZ&&&&&&&&" {
@@ -66,7 +65,7 @@ func TestParseLong(t *testing.T) {
 	// Test and time the parsing of the message
 	start_time := time.Now()
 	_, err := msg.Parse()
-	fmt.Println("(LONG B64) Parse time:", time.Since(start_time))
+	t.Log("(LONG B64) Parse time:", time.Since(start_time))
 	if err != nil {
 		t.Error(err)
 	}
@@ -92,7 +91,7 @@ func TestGenerateLong(t *testing.T) {
 	// Test and time the parsing of the message
 	start_time := time.Now()
 	msg.Generate()
-	fmt.Println("(LONG B64) Generation time:", time.Since(start_time))
+	t.Log("(LONG B64) Generation time:", time.Since(start_time))
 	// Validate the message
 	b64 := base64.StdEncoding.EncodeToString(msg.Body)
 	if string(msg.Data) != "key1&value1&&key2&value2&&&&"+b64+"&&&&&&&&" {
@@ -110,9 +109,9 @@ func TestParse_NoB64(t *testing.T) {
 	// Test and time the parsing of the message
 	start_time := time.Now()
 	_, err := msg.Parse()
-	fmt.Println("(SHORT B64) Parse time:", time.Since(start_time))
+	t.Log("(SHORT B64) Parse time:", time.Since(start_time))
 	if err != nil {
-		fmt.Println(err)
+		t.Log(err)
 	}
 	// Validate the message
 	if msg.Headers["key1"][0] != "value1" {
@@ -135,7 +134,7 @@ func TestGenerate_NoB64(t *testing.T) {
 	// Test and time the parsing of the message
 	start_time := time.Now()
 	msg.Generate()
-	fmt.Println("(SHORT NOB64) Generation time:", time.Since(start_time))
+	t.Log("(SHORT NOB64) Generation time:", time.Since(start_time))
 	// Validate the message
 	if string(msg.Data) != "key1&value1&&key2&value2&&&&BODYBODYBODY&&&&&&&&" {
 		if string(msg.Data) != "key2&value2&&key1&value1&&&&BODYBODYBODY&&&&&&&&" {
@@ -153,7 +152,7 @@ func TestParseLong_NoB64(t *testing.T) {
 	// Test and time the parsing of the message
 	start_time := time.Now()
 	_, err := msg.Parse()
-	fmt.Println("(LONG NO_B64) Parse time:", time.Since(start_time))
+	t.Log("(LONG NO_B64) Parse time:", time.Since(start_time))
 	if err != nil {
 		t.Error(err)
 	}
@@ -180,7 +179,7 @@ func TestGenerateLong_NoB64(t *testing.T) {
 	// Test and time the parsing of the message
 	start_time := time.Now()
 	msg.Generate()
-	fmt.Println("(LONG NO_B64) Generation time:", time.Since(start_time))
+	t.Log("(LONG NO_B64) Generation time:", time.Since(start_time))
 	// Validate the message
 	// b64 := base64.StdEncoding.EncodeToString(msg.Body)
 	if string(msg.Data) != "key1&value1&&key2&value2&&&&"+string(body)+"&&&&&&&&" {
