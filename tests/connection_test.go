@@ -11,18 +11,20 @@ import (
 	"github.com/Nigel2392/quickproto"
 	"github.com/Nigel2392/quickproto/client"
 	"github.com/Nigel2392/quickproto/server"
+	simple_rsa "github.com/Nigel2392/simplecrypto/rsa"
 )
 
 // This test is not race condition safe, do not run with --race!
 func TestConnection(t *testing.T) {
 	var UseB64 []bool = []bool{false, true}
 	var DELIMITER_LIST []string = []string{
-		"!", "@", "#", "$", "%", "^", "&", "*", "(", ")", "-", "+", "[", "{", "]", "}", ";", ":", "'", "\"", ",", "<", ".", ">", "/", "?", "`", "~", "|", "\\", " ",
+		// "!", "@", "#", "$", "%", "^", "&", "*", "(", ")", "-", "+", "[", "{", "]", "}", ";", ":", "'", "\"", ",", "<", ".", ">", "/", "?", "`", "~", "|", "\\", " ",
 		//// Ascii escape characters
 		"\x1b", "\x1c", "\x1d", "\x1e", "\x1f",
 		// Ascii control characters
-		"\x00", "\x01", "\x02", "\x03", "\x04", "\x05", "\x06", "\x07", "\x08", "\x09", "\x0a", "\x0b", "\x0c", "\x0d", "\x0e", "\x0f", "\x10", "\x11", "\x12", "\x13", "\x14",
-		"\x15", "\x16", "\x17", "\x18", "\x19", "\x1a",
+		// "\x00", "\x01", "\x02", "\x03", "\x04", "\x05", "\x06",
+		// "\x07", "\x09", "\x0a", "\x0b", "\x0c", "\x0d", "\x0e", "\x0f", "\x10", "\x11", "\x12", "\x13", "\x14",
+		// "\x15", "\x16", "\x17", "\x18", "\x19", "\x1a",
 		// Ascii non-printable characters
 		// "\x7f", "\x80", "\x81", "\x82", "\x83", "\x84", "\x85", "\x86", "\x87", "\x88", "\x89",
 		// "\x8a", "\x8b", "\x8c", "\x8d", "\x8e", "\x8f", "\x90", "\x91", "\x92", "\x93", "\x94",
@@ -67,6 +69,7 @@ func TestConnection(t *testing.T) {
 	}
 	var ct int
 	var FAILED_DELIMITERS []error = []error{}
+	privkey, pubkey, _ := simple_rsa.GenKeypair(2048)
 	// var BufSizes []int = []int{16, 128, 512, 1024, 2048, 16384}
 	// for _, BUFFER_SIZE := range BufSizes {
 	// wg := &sync.WaitGroup{}
@@ -79,7 +82,8 @@ func TestConnection(t *testing.T) {
 				ct++
 
 				conf := quickproto.NewConfig([]byte(DELIMITER), USAGE, USE_CRYPTO, 2048, quickproto.Base64Encoding, quickproto.Base64Decoding)
-
+				conf.PrivateKey = privkey
+				conf.PublicKey = pubkey
 				IP := "127.0.0.1"
 				Port := 8080 + ct
 				s := server.New(IP, Port, conf)

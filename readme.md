@@ -29,6 +29,11 @@ Usage:
 Initialize a config like so:
 ```go
 conf := quickproto.NewConfig([]byte(DELIMITER), USE_ENCODING, USE_CRYPTO, 2048, quickproto.Base16Encoding, quickproto.Base16Decoding)
+// RSA only used if USE_CRYPTO is true, and when sending the AES key from client to server.
+// The RSA keys are however not required, but highly recommended to securely send the AES key from client to server!
+conf.PrivateKey = privkey // Client does not need the private key! This is a security risk!
+conf.PublicKey = pubkey // Server does not need the public key, but it would not pose a security risk.
+
 ```
 Then you can simply run a server with the following lines of code:
 ```go

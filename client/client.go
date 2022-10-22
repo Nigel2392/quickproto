@@ -1,42 +1,46 @@
 package client
 
 import (
+	"crypto/rsa"
 	"errors"
 	"net"
 	"strconv"
 
 	"github.com/Nigel2392/quickproto"
 	"github.com/Nigel2392/simplecrypto/aes"
+	simple_rsa "github.com/Nigel2392/simplecrypto/rsa"
 )
 
 type Client struct {
-	IP          string
-	PORT        int
-	Conn        net.Conn
-	UseEncoding bool
-	UseCrypto   bool
-	Delimiter   []byte
-	BUF_SIZE    int
-	Enc_func    func([]byte) []byte
-	Dec_func    func([]byte) ([]byte, error)
-	CONFIG      *quickproto.Config
-	OnMessage   func(*quickproto.Message)
-	AesKey      *[32]byte
+	IP           string
+	PORT         int
+	Conn         net.Conn
+	UseEncoding  bool
+	UseCrypto    bool
+	Delimiter    []byte
+	BUF_SIZE     int
+	Enc_func     func([]byte) []byte
+	Dec_func     func([]byte) ([]byte, error)
+	CONFIG       *quickproto.Config
+	OnMessage    func(*quickproto.Message)
+	AesKey       *[32]byte
+	RsaPublicKey *rsa.PublicKey
 }
 
 func New(ip string, port int, conf *quickproto.Config, onmessage func(*quickproto.Message)) *Client {
 	return &Client{
-		IP:          ip,
-		PORT:        port,
-		Conn:        nil,
-		UseEncoding: conf.UseEncoding,
-		UseCrypto:   conf.UseCrypto,
-		Delimiter:   conf.Delimiter,
-		BUF_SIZE:    conf.BufSize,
-		Enc_func:    conf.Enc_func,
-		Dec_func:    conf.Dec_func,
-		CONFIG:      conf,
-		OnMessage:   onmessage,
+		IP:           ip,
+		PORT:         port,
+		Conn:         nil,
+		UseEncoding:  conf.UseEncoding,
+		UseCrypto:    conf.UseCrypto,
+		Delimiter:    conf.Delimiter,
+		BUF_SIZE:     conf.BufSize,
+		Enc_func:     conf.Enc_func,
+		Dec_func:     conf.Dec_func,
+		CONFIG:       conf,
+		OnMessage:    onmessage,
+		RsaPublicKey: conf.PublicKey,
 	}
 }
 
@@ -53,6 +57,12 @@ func (c *Client) Connect() error {
 		msg := c.CONFIG.NewMessage()
 		msg.Headers["type"] = []string{"aes_key"}
 		msg.Body = aes_key[:]
+		if c.RsaPublicKey != nil {
+			msg.Body, err = simple_rsa.Encrypt(msg.Body, c.RsaPublicKey)
+			if err != nil {
+				return err
+			}
+		}
 		err = c.Write(msg)
 		if err != nil {
 			return err

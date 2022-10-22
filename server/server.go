@@ -1,25 +1,28 @@
 package server
 
 import (
+	"crypto/rsa"
 	"errors"
 	"net"
 	"strconv"
 
 	"github.com/Nigel2392/quickproto"
+	simple_rsa "github.com/Nigel2392/simplecrypto/rsa"
 )
 
 type Server struct {
-	IP          string
-	PORT        int
-	Listener    net.Listener
-	UseEncoding bool
-	UseCrypto   bool
-	Delimiter   []byte
-	BUF_SIZE    int
-	Enc_func    func([]byte) []byte
-	Dec_func    func([]byte) ([]byte, error)
-	CONFIG      *quickproto.Config
-	Clients     map[string]*Client
+	IP            string
+	PORT          int
+	Listener      net.Listener
+	UseEncoding   bool
+	UseCrypto     bool
+	Delimiter     []byte
+	BUF_SIZE      int
+	Enc_func      func([]byte) []byte
+	Dec_func      func([]byte) ([]byte, error)
+	CONFIG        *quickproto.Config
+	Clients       map[string]*Client
+	RSAPrivateKey *rsa.PrivateKey
 }
 
 type Client struct {
@@ -29,17 +32,18 @@ type Client struct {
 
 func New(ip string, port int, conf *quickproto.Config) *Server {
 	return &Server{
-		IP:          ip,
-		PORT:        port,
-		Listener:    nil,
-		UseEncoding: conf.UseEncoding,
-		UseCrypto:   conf.UseCrypto,
-		Delimiter:   conf.Delimiter,
-		BUF_SIZE:    conf.BufSize,
-		Enc_func:    conf.Enc_func,
-		Dec_func:    conf.Dec_func,
-		CONFIG:      conf,
-		Clients:     make(map[string]*Client),
+		IP:            ip,
+		PORT:          port,
+		Listener:      nil,
+		UseEncoding:   conf.UseEncoding,
+		UseCrypto:     conf.UseCrypto,
+		Delimiter:     conf.Delimiter,
+		BUF_SIZE:      conf.BufSize,
+		Enc_func:      conf.Enc_func,
+		Dec_func:      conf.Dec_func,
+		RSAPrivateKey: conf.PrivateKey,
+		CONFIG:        conf,
+		Clients:       make(map[string]*Client),
 	}
 }
 
@@ -66,6 +70,13 @@ func (s *Server) Accept() (net.Conn, *Client, error) {
 	if s.UseCrypto {
 		// read aes key from client
 		msg, err := s.Read_c(conn)
+		if s.RSAPrivateKey != nil {
+			msgbody, err := simple_rsa.Decrypt(msg.Body, s.RSAPrivateKey)
+			if err != nil {
+				return nil, &Client{}, err
+			}
+			msg.Body = msgbody
+		}
 		if err != nil {
 			return nil, &Client{}, err
 		}

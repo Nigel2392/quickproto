@@ -2,6 +2,7 @@ package quickproto
 
 import (
 	"bytes"
+	"crypto/rsa"
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
@@ -26,7 +27,7 @@ import (
 
 var STANDARD_DELIM []byte = []byte("$")
 var BANNED_DELIMITERS = []string{
-	"=", "_",
+	"=", "_", "\x08",
 	"A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z",
 	"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z",
 }
@@ -64,6 +65,8 @@ type Config struct {
 	BufSize     int
 	Enc_func    func([]byte) []byte
 	Dec_func    func([]byte) ([]byte, error)
+	PrivateKey  *rsa.PrivateKey
+	PublicKey   *rsa.PublicKey
 }
 
 // NewConfig creates a new Config.
