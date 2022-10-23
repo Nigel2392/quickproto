@@ -33,7 +33,7 @@ func TestParse(t *testing.T) {
 		t.Error("(SHORT B64) Expected key2 to be value2 " + msg.Headers["key2"][0])
 	}
 	if string(msg.Body) != "BODYBODYBODY" {
-		t.Error("(SHORT B64) Expected body to be BODYBODYBODY")
+		t.Error("(SHORT B64) Expected body to be BODYBODYBODY, got " + string(msg.Body))
 	}
 }
 
@@ -51,7 +51,7 @@ func TestGenerate(t *testing.T) {
 	// Validate the message
 	if string(msg.Data) != "key1&value1&value2&&key2&value2&&&&Qk9EWUJPRFlCT0RZ&&&&&&&&" {
 		if string(msg.Data) != "key2&value2&&key1&value1&value2&&&&Qk9EWUJPRFlCT0RZ&&&&&&&&" {
-			t.Error("(SHORT B64)Expected data to be key1&value1&value2&&key2&value2&&&&Qk9EWUJPRFlCT0RZ&&&&&&&&")
+			t.Error("(SHORT B64)Expected data to be key1&value1&value2&&key2&value2&&&&Qk9EWUJPRFlCT0RZ&&&&&&&&, got " + string(msg.Data))
 		}
 	}
 }

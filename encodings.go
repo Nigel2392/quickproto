@@ -2,6 +2,7 @@ package quickproto
 
 import (
 	"bytes"
+	"encoding/base32"
 	"encoding/base64"
 	"encoding/hex"
 	"io"
@@ -20,6 +21,22 @@ func Base64Encoding(data []byte) []byte {
 func Base64Decoding(data []byte) ([]byte, error) {
 	buf := bytes.NewBuffer(data)
 	decoder := base64.NewDecoder(base64.StdEncoding, buf)
+	return io.ReadAll(decoder)
+}
+
+// Base32 encoding
+func Base32Encoding(data []byte) []byte {
+	var b32_buffer bytes.Buffer
+	encoder := base32.NewEncoder(base32.StdEncoding, &b32_buffer)
+	encoder.Write(data)
+	encoder.Close()
+	return b32_buffer.Bytes()
+}
+
+// Base32 decoding
+func Base32Decoding(data []byte) ([]byte, error) {
+	buf := bytes.NewBuffer(data)
+	decoder := base32.NewDecoder(base32.StdEncoding, buf)
 	return io.ReadAll(decoder)
 }
 

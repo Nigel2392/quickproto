@@ -19,8 +19,8 @@ type Client struct {
 	UseCrypto    bool
 	Delimiter    []byte
 	BUF_SIZE     int
-	Enc_func     func([]byte) []byte
-	Dec_func     func([]byte) ([]byte, error)
+	Encode_func  func([]byte) []byte
+	Decode_func  func([]byte) ([]byte, error)
 	CONFIG       *quickproto.Config
 	OnMessage    func(*quickproto.Message)
 	AesKey       *[32]byte
@@ -36,8 +36,8 @@ func New(ip string, port int, conf *quickproto.Config, onmessage func(*quickprot
 		UseCrypto:    conf.UseCrypto,
 		Delimiter:    conf.Delimiter,
 		BUF_SIZE:     conf.BufSize,
-		Enc_func:     conf.Enc_func,
-		Dec_func:     conf.Dec_func,
+		Encode_func:  conf.Encode_func,
+		Decode_func:  conf.Decode_func,
 		CONFIG:       conf,
 		OnMessage:    onmessage,
 		RsaPublicKey: conf.PublicKey,
@@ -72,6 +72,7 @@ func (c *Client) Connect() error {
 		}
 		c.AesKey = aes_key
 	}
+
 	return err
 }
 

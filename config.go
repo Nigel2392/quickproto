@@ -10,14 +10,14 @@ type Config struct {
 	UseEncoding bool
 	UseCrypto   bool
 	BufSize     int
-	Enc_func    func([]byte) []byte
-	Dec_func    func([]byte) ([]byte, error)
+	Encode_func func([]byte) []byte
+	Decode_func func([]byte) ([]byte, error)
 	PrivateKey  *rsa.PrivateKey
 	PublicKey   *rsa.PublicKey
 }
 
 // NewConfig creates a new Config.
-func NewConfig(delimiter []byte, useencoding bool, usecrypto bool, bufsize int, enc_f func([]byte) []byte, dec_f func([]byte) ([]byte, error)) *Config {
+func NewConfig(delimiter []byte, useencoding bool, usecrypto bool, bufsize int, encode_f func([]byte) []byte, decode_f func([]byte) ([]byte, error)) *Config {
 	if delimiter == nil {
 		delimiter = STANDARD_DELIM
 	}
@@ -31,11 +31,11 @@ func NewConfig(delimiter []byte, useencoding bool, usecrypto bool, bufsize int, 
 		UseEncoding: useencoding,
 		UseCrypto:   usecrypto,
 		BufSize:     bufsize,
-		Enc_func:    enc_f,
-		Dec_func:    dec_f,
+		Encode_func: encode_f,
+		Decode_func: decode_f,
 	}
 }
 
 func (c *Config) NewMessage() *Message {
-	return NewMessage(c.Delimiter, c.UseEncoding, c.Enc_func, c.Dec_func)
+	return NewMessage(c.Delimiter, c.UseEncoding, c.Encode_func, c.Decode_func)
 }

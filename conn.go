@@ -8,7 +8,7 @@ import (
 )
 
 func ReadConn(conn net.Conn, conf *Config, aes_key *[32]byte) (*Message, error) {
-	msg := NewMessage(conf.Delimiter, conf.UseEncoding, conf.Enc_func, conf.Dec_func)
+	msg := NewMessage(conf.Delimiter, conf.UseEncoding, conf.Encode_func, conf.Decode_func)
 	buf := make([]byte, conf.BufSize)
 	var data []byte
 	// read until ending delimiter is found

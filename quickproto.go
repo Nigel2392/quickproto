@@ -36,14 +36,14 @@ type Message struct {
 	Body        []byte
 	Files       map[string]MessageFile
 	UseEncoding bool
-	Enc_func    func([]byte) []byte
-	Dec_func    func([]byte) ([]byte, error)
+	Encode_func func([]byte) []byte
+	Decode_func func([]byte) ([]byte, error)
 	// Parsed    bool
 	// Generated bool
 }
 
 // NewMessage creates a new Message.
-func NewMessage(delimiter []byte, useencoding bool, enc_func func([]byte) []byte, dec_func func([]byte) ([]byte, error)) *Message {
+func NewMessage(delimiter []byte, useencoding bool, encode_func func([]byte) []byte, decode_func func([]byte) ([]byte, error)) *Message {
 	if delimiter == nil {
 		delimiter = STANDARD_DELIM
 	}
@@ -54,8 +54,8 @@ func NewMessage(delimiter []byte, useencoding bool, enc_func func([]byte) []byte
 		Body:        []byte{},
 		Files:       make(map[string]MessageFile),
 		UseEncoding: useencoding,
-		Enc_func:    enc_func,
-		Dec_func:    dec_func,
+		Encode_func: encode_func,
+		Decode_func: decode_func,
 		// Parsed:    false,
 		// Generated: false,
 	}
@@ -169,8 +169,8 @@ func (m *Message) Parse() (*Message, error) {
 	var body []byte
 	var err error
 	full_body := bytes.Trim(datalist[1], string(ending_delimiter))
-	if m.Enc_func != nil && m.Dec_func != nil {
-		full_body, err = m.Dec_func(full_body)
+	if m.Encode_func != nil && m.Decode_func != nil && m.UseEncoding {
+		full_body, err = m.Decode_func(full_body)
 		if err != nil {
 			return nil, err
 		}
@@ -282,9 +282,9 @@ func (m *Message) Generate() (*Message, error) {
 	wg.Wait()
 	// Append body to buffer
 	bodybuffer.Write(m.Body)
-	if m.Enc_func != nil && m.Dec_func != nil {
+	if m.Encode_func != nil && m.Decode_func != nil && m.UseEncoding {
 		// If encoding is set, create buffer and encode body
-		buffer.Write(m.Enc_func(bodybuffer.Bytes()))
+		buffer.Write(m.Encode_func(bodybuffer.Bytes()))
 	} else {
 		// Else write body to buffer
 		buffer.Write(bodybuffer.Bytes())
