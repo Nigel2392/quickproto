@@ -8,7 +8,7 @@ import (
 	"io"
 )
 
-// Base64 encoding
+// Base 64 encoding
 func Base64Encoding(data []byte) []byte {
 	var b64_buffer bytes.Buffer
 	encoder := base64.NewEncoder(base64.StdEncoding, &b64_buffer)
@@ -17,14 +17,14 @@ func Base64Encoding(data []byte) []byte {
 	return b64_buffer.Bytes()
 }
 
-// Base64 decoding
+// Base 64 decoding
 func Base64Decoding(data []byte) ([]byte, error) {
 	buf := bytes.NewBuffer(data)
 	decoder := base64.NewDecoder(base64.StdEncoding, buf)
 	return io.ReadAll(decoder)
 }
 
-// Base32 encoding
+// Base 32 encoding
 func Base32Encoding(data []byte) []byte {
 	var b32_buffer bytes.Buffer
 	encoder := base32.NewEncoder(base32.StdEncoding, &b32_buffer)
@@ -33,7 +33,7 @@ func Base32Encoding(data []byte) []byte {
 	return b32_buffer.Bytes()
 }
 
-// Base32 decoding
+// Base 32 decoding
 func Base32Decoding(data []byte) ([]byte, error) {
 	buf := bytes.NewBuffer(data)
 	decoder := base32.NewDecoder(base32.StdEncoding, buf)

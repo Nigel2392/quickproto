@@ -20,7 +20,7 @@ func TestConnection(t *testing.T) {
 	var DELIMITER_LIST []string = []string{
 		"!", "@", "#", "$", "%", "^", "&", "*", "(", ")", "-", "+", "[", "{", "]", "}", ";", ":", "'", "\"", ",", "<", ".", ">", "/", "?", "`", "~", "|", "\\", " ",
 		//// Ascii escape characters
-		"\x1b", "\x1c", "\x1d", "\x1e", "\x1f",
+		// "\x1b", "\x1c", "\x1d", "\x1e", "\x1f",
 		//// Ascii control characters
 		//"\x00", "\x01", "\x02", "\x03", "\x04", "\x05", "\x06",
 		//"\x07", "\x09", "\x0a", "\x0b", "\x0c", "\x0d", "\x0e", "\x0f", "\x10", "\x11", "\x12", "\x13", "\x14",

@@ -38,8 +38,6 @@ type Message struct {
 	UseEncoding bool
 	Encode_func func([]byte) []byte
 	Decode_func func([]byte) ([]byte, error)
-	// Parsed    bool
-	// Generated bool
 }
 
 // NewMessage creates a new Message.
@@ -56,8 +54,6 @@ func NewMessage(delimiter []byte, useencoding bool, encode_func func([]byte) []b
 		UseEncoding: useencoding,
 		Encode_func: encode_func,
 		Decode_func: decode_func,
-		// Parsed:    false,
-		// Generated: false,
 	}
 }
 
@@ -89,34 +85,34 @@ func (m *Message) AddContent(content any) error {
 	return nil
 }
 
+// Add a MessageFile to the message.
 func (m *Message) AddFile(file MessageFile) error {
-	// if strings.Contains(file.Name, string(m.Delimiter)) {
-	// return errors.New("file name contains file delimiter")
-	// }
 	m.Files[file.Name] = file
 	return nil
 }
 
+// Create a MessageFile, and add it to the message.
 func (m *Message) AddRawFile(name string, data []byte) error {
-	// if strings.Contains(string(name), string(m.Delimiter)) {
-	// return errors.New("file name contains file delimiter")
-	// }
 	m.Files[name] = MessageFile{Name: name, Data: data}
 	return nil
 }
 
+// Header delimiter, returns DELIMITER + DELIMITER
 func (m *Message) HeaderDelimiter() []byte {
 	return append(m.Delimiter, m.Delimiter...)
 }
 
-func (m *Message) FileDelimiter() []byte {
-	return append(m.BodyDelimiter(), m.HeaderDelimiter()...)
-}
-
+// Body delimiter, returns HEADER_DELIMITER + HEADER_DELIMITER
 func (m *Message) BodyDelimiter() []byte {
 	return append(m.HeaderDelimiter(), m.HeaderDelimiter()...)
 }
 
+// File delimiter, returns BODY_DELIMITER + HEADER_DELIMITER
+func (m *Message) FileDelimiter() []byte {
+	return append(m.BodyDelimiter(), m.HeaderDelimiter()...)
+}
+
+// End delimiter, returns BODY_DELIMITER + BODY_DELIMITER
 func (m *Message) EndingDelimiter() []byte {
 	return append(m.BodyDelimiter(), m.BodyDelimiter()...)
 }

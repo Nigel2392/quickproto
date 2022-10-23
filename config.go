@@ -5,15 +5,22 @@ import (
 	"crypto/rsa"
 )
 
+// General configuration to use for client and server.
 type Config struct {
-	Delimiter   []byte
+	// Delimiter used for separating message data
+	Delimiter []byte
+	// Use encoding?
 	UseEncoding bool
-	UseCrypto   bool
-	BufSize     int
+	// Use crypto?
+	UseCrypto bool
+	// Buffer size
+	BufSize int
+	// Encoding/Decoding functions
 	Encode_func func([]byte) []byte
 	Decode_func func([]byte) ([]byte, error)
-	PrivateKey  *rsa.PrivateKey
-	PublicKey   *rsa.PublicKey
+	// RSA keys
+	PrivateKey *rsa.PrivateKey // Server-side
+	PublicKey  *rsa.PublicKey  // Client-side
 }
 
 // NewConfig creates a new Config.
@@ -36,6 +43,7 @@ func NewConfig(delimiter []byte, useencoding bool, usecrypto bool, bufsize int, 
 	}
 }
 
+// Generate a new message with default configuration options.
 func (c *Config) NewMessage() *Message {
 	return NewMessage(c.Delimiter, c.UseEncoding, c.Encode_func, c.Decode_func)
 }

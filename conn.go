@@ -3,10 +3,25 @@ package quickproto
 import (
 	"bytes"
 	"net"
+	"strconv"
 
 	"github.com/Nigel2392/simplecrypto/aes"
 )
 
+// Convenience function to craft an address from an IP and a port
+// Port could be string or int, IP must be string
+func CraftAddr(ip string, port any) string {
+	switch port := port.(type) {
+	case int:
+		return ip + ":" + strconv.Itoa(port)
+	case string:
+		return ip + ":" + port
+	default:
+		panic("invalid port type provided")
+	}
+}
+
+// ReadConn reads a message from a connection
 func ReadConn(conn net.Conn, conf *Config, aes_key *[32]byte) (*Message, error) {
 	msg := NewMessage(conf.Delimiter, conf.UseEncoding, conf.Encode_func, conf.Decode_func)
 	buf := make([]byte, conf.BufSize)
@@ -20,16 +35,12 @@ func ReadConn(conn net.Conn, conf *Config, aes_key *[32]byte) (*Message, error) 
 		}
 		data = append(data, buf[:n]...)
 		// flush buffer
-		if !bytes.Contains(data, msg.EndingDelimiter()) {
-			buf = make([]byte, conf.BufSize)
-		}
 	}
 	// decrypt data if needed
 	if aes_key != nil {
 		var err error
 		data = bytes.TrimSuffix(data, msg.EndingDelimiter())
-		data, err = aes.Decrypt(data, aes_key)
-		if err != nil {
+		if data, err = aes.Decrypt(data, aes_key); err != nil {
 			return nil, err
 		}
 		data = append(data, msg.EndingDelimiter()...)
@@ -38,6 +49,7 @@ func ReadConn(conn net.Conn, conf *Config, aes_key *[32]byte) (*Message, error) 
 	return msg.Parse()
 }
 
+// WriteConn writes a message to a connection and encrypts it if needed
 func WriteConn(conn net.Conn, msg *Message, aes_key *[32]byte) error {
 	// Write data to connection
 	send, err := msg.Generate()

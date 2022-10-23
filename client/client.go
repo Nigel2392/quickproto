@@ -1,57 +1,49 @@
 package client
 
 import (
-	"crypto/rsa"
 	"errors"
 	"net"
-	"strconv"
 
 	"github.com/Nigel2392/quickproto"
 	"github.com/Nigel2392/simplecrypto/aes"
 	simple_rsa "github.com/Nigel2392/simplecrypto/rsa"
 )
 
+// Client struct for connecting to a server.
 type Client struct {
-	IP           string
-	PORT         int
-	Conn         net.Conn
-	UseEncoding  bool
-	UseCrypto    bool
-	Delimiter    []byte
-	BUF_SIZE     int
-	Encode_func  func([]byte) []byte
-	Decode_func  func([]byte) ([]byte, error)
-	CONFIG       *quickproto.Config
-	OnMessage    func(*quickproto.Message)
-	AesKey       *[32]byte
-	RsaPublicKey *rsa.PublicKey
+	IP        string
+	PORT      any
+	Conn      net.Conn
+	CONFIG    *quickproto.Config
+	OnMessage func(*quickproto.Message)
+	AesKey    *[32]byte
 }
 
+// Initiate a new client
 func New(ip string, port int, conf *quickproto.Config, onmessage func(*quickproto.Message)) *Client {
 	return &Client{
-		IP:           ip,
-		PORT:         port,
-		Conn:         nil,
-		UseEncoding:  conf.UseEncoding,
-		UseCrypto:    conf.UseCrypto,
-		Delimiter:    conf.Delimiter,
-		BUF_SIZE:     conf.BufSize,
-		Encode_func:  conf.Encode_func,
-		Decode_func:  conf.Decode_func,
-		CONFIG:       conf,
-		OnMessage:    onmessage,
-		RsaPublicKey: conf.PublicKey,
+		IP:        ip,
+		PORT:      port,
+		Conn:      nil,
+		CONFIG:    conf,
+		OnMessage: onmessage,
 	}
 }
 
+// Addr returns the address of the server, in the form "ip:port"
 func (c *Client) Addr() string {
-	return c.IP + ":" + strconv.Itoa(c.PORT)
+	return quickproto.CraftAddr(c.IP, c.PORT)
 }
 
+// Connect to the server
 func (c *Client) Connect() error {
+	// If we are using crypto, the first message sent by the client will be the AES key.
+	// If the client is provided with a public key, it will use it to encrypt the AES key.
+	// The server will then use its private key to decrypt the AES key.
+	// Then, the server will use the AES key to decrypt all future messages.
 	var err error
 	c.Conn, err = net.Dial("tcp", c.Addr())
-	if c.UseCrypto && c.AesKey == nil {
+	if c.CONFIG.UseCrypto && c.AesKey == nil {
 		// Generate new aes key each session
 		aes_key := aes.NewEncryptionKey()
 		// Generate message to send to server
@@ -59,8 +51,8 @@ func (c *Client) Connect() error {
 		msg.Headers["type"] = []string{"aes_key"}
 		msg.Body = aes_key[:]
 		// Encrypt body with public key when one is provided
-		if c.RsaPublicKey != nil {
-			msg.Body, err = simple_rsa.Encrypt(msg.Body, c.RsaPublicKey)
+		if c.CONFIG.PublicKey != nil {
+			msg.Body, err = simple_rsa.Encrypt(msg.Body, c.CONFIG.PublicKey)
 			if err != nil {
 				return err
 			}
@@ -76,10 +68,12 @@ func (c *Client) Connect() error {
 	return err
 }
 
+// Terminate the connection
 func (c *Client) Terminate() error {
 	return c.Conn.Close()
 }
 
+// Read a message from the server
 func (c *Client) Read() (*quickproto.Message, error) {
 	msg, err := quickproto.ReadConn(c.Conn, c.CONFIG, c.AesKey)
 	if err != nil {
@@ -88,10 +82,12 @@ func (c *Client) Read() (*quickproto.Message, error) {
 	return msg, nil
 }
 
+// Write a message to the server
 func (c *Client) Write(msg *quickproto.Message) error {
 	return quickproto.WriteConn(c.Conn, msg, c.AesKey)
 }
 
+// Listen for messages from the server
 func (c *Client) Listen() error {
 	for {
 		msg, err := c.Read()
