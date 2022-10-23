@@ -50,9 +50,9 @@ Or create a client like so:
 c := client.New(IP, Port, conf, nil)
 c.Connect()
 msg := c.CONFIG.NewMessage() // Use config to generate message to omit providing arguments
-msg.AddHeader("Test", "Test")
-msg.AddHeader("Test2", "Test2")
-msg.AddHeader("Test3", "Test3")
+msg.AddHeader("Test_key", "Test_value")
+msg.AddHeader("Test2_key", "Test2_value")
+msg.AddHeader("Test3_key", "Test3_value")
 msg.AddRawFile("test.txt", []byte("Hello World"))
 msg.AddRawFile("test2.txt", []byte("Hello World"))
 msg.AddRawFile("test3.txt", []byte("Hello World"))

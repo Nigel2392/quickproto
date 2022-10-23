@@ -66,6 +66,10 @@ func (s *Server) Accept() (net.Conn, *Client, error) {
 	if err != nil {
 		return nil, &Client{}, err
 	}
+	// If we are using crypto, the first message sent by the client will be the AES key.
+	// This key will be used to encrypt all future messages.
+	// If we are provided with a private key, we will use it to decrypt the AES key.
+	// If we are not provided with a private key, we will assume that the client is not using RSA encryption.
 	var aes_key *[32]byte
 	if s.UseCrypto {
 		// read aes key from client

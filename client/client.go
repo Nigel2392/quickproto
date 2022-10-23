@@ -52,24 +52,26 @@ func (c *Client) Connect() error {
 	var err error
 	c.Conn, err = net.Dial("tcp", c.Addr())
 	if c.UseCrypto && c.AesKey == nil {
+		// Generate new aes key each session
 		aes_key := aes.NewEncryptionKey()
-		// send aes key to server
+		// Generate message to send to server
 		msg := c.CONFIG.NewMessage()
 		msg.Headers["type"] = []string{"aes_key"}
 		msg.Body = aes_key[:]
+		// Encrypt body with public key when one is provided
 		if c.RsaPublicKey != nil {
 			msg.Body, err = simple_rsa.Encrypt(msg.Body, c.RsaPublicKey)
 			if err != nil {
 				return err
 			}
 		}
+		// Send message
 		err = c.Write(msg)
 		if err != nil {
 			return err
 		}
 		c.AesKey = aes_key
 	}
-
 	return err
 }
 

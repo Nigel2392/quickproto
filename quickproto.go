@@ -2,11 +2,7 @@ package quickproto
 
 import (
 	"bytes"
-	"crypto/rsa"
-	"encoding/base64"
-	"encoding/hex"
 	"errors"
-	"io"
 	"strings"
 	"sync"
 )
@@ -30,67 +26,6 @@ var BANNED_DELIMITERS = []string{
 	"=", "_", "\x08",
 	"A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z",
 	"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z",
-}
-
-// Base64 encoding
-func Base64Encoding(data []byte) []byte {
-	var b64_buffer bytes.Buffer
-	encoder := base64.NewEncoder(base64.StdEncoding, &b64_buffer)
-	encoder.Write(data)
-	encoder.Close()
-	return b64_buffer.Bytes()
-}
-
-// Base64 decoding
-func Base64Decoding(data []byte) ([]byte, error) {
-	buf := bytes.NewBuffer(data)
-	decoder := base64.NewDecoder(base64.StdEncoding, buf)
-	return io.ReadAll(decoder)
-}
-
-// Hex encoding
-func Base16Encoding(data []byte) []byte {
-	return []byte(hex.EncodeToString(data))
-}
-
-// Hex decoding
-func Base16Decoding(data []byte) ([]byte, error) {
-	return hex.DecodeString(string(data))
-}
-
-type Config struct {
-	Delimiter   []byte
-	UseEncoding bool
-	UseCrypto   bool
-	BufSize     int
-	Enc_func    func([]byte) []byte
-	Dec_func    func([]byte) ([]byte, error)
-	PrivateKey  *rsa.PrivateKey
-	PublicKey   *rsa.PublicKey
-}
-
-// NewConfig creates a new Config.
-func NewConfig(delimiter []byte, useencoding bool, usecrypto bool, bufsize int, enc_f func([]byte) []byte, dec_f func([]byte) ([]byte, error)) *Config {
-	if delimiter == nil {
-		delimiter = STANDARD_DELIM
-	}
-	for _, d := range BANNED_DELIMITERS {
-		if bytes.Contains(delimiter, []byte(d)) {
-			panic("Delimiter contains banned characters: " + d)
-		}
-	}
-	return &Config{
-		Delimiter:   delimiter,
-		UseEncoding: useencoding,
-		UseCrypto:   usecrypto,
-		BufSize:     bufsize,
-		Enc_func:    enc_f,
-		Dec_func:    dec_f,
-	}
-}
-
-func (c *Config) NewMessage() *Message {
-	return NewMessage(c.Delimiter, c.UseEncoding, c.Enc_func, c.Dec_func)
 }
 
 // A Message is a protocol message.
@@ -234,7 +169,7 @@ func (m *Message) Parse() (*Message, error) {
 	var body []byte
 	var err error
 	full_body := bytes.Trim(datalist[1], string(ending_delimiter))
-	if m.Enc_func != nil && m.Dec_func != nil && m.UseEncoding {
+	if m.Enc_func != nil && m.Dec_func != nil {
 		full_body, err = m.Dec_func(full_body)
 		if err != nil {
 			return nil, err
@@ -347,7 +282,7 @@ func (m *Message) Generate() (*Message, error) {
 	wg.Wait()
 	// Append body to buffer
 	bodybuffer.Write(m.Body)
-	if m.Enc_func != nil && m.Dec_func != nil && m.UseEncoding {
+	if m.Enc_func != nil && m.Dec_func != nil {
 		// If encoding is set, create buffer and encode body
 		buffer.Write(m.Enc_func(bodybuffer.Bytes()))
 	} else {
