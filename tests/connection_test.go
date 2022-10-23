@@ -6,6 +6,7 @@ package tests
 import (
 	"errors"
 	"strconv"
+	"sync"
 	"testing"
 
 	"github.com/Nigel2392/quickproto"
@@ -18,13 +19,13 @@ import (
 func TestConnection(t *testing.T) {
 	var UseB64 []bool = []bool{false, true}
 	var DELIMITER_LIST []string = []string{
-		"!", "@", "#", "$", "%", "^", "&", "*", "(", ")", "-", "+", "[", "{", "]", "}", ";", ":", "'", "\"", ",", "<", ".", ">", "/", "?", "`", "~", "|", "\\", " ",
+		"!", "@", "#", "$", "%", "^", "&", "*", "(", ")", "+", "[", "{", "]", "}", ";", ":", "'", "\"", ",", "<", ".", ">", "/", "?", "`", "~", "|", "\\", " ",
 		//// Ascii escape characters
-		// "\x1b", "\x1c", "\x1d", "\x1e", "\x1f",
+		"\x1b", "\x1c", "\x1d", "\x1f",
 		//// Ascii control characters
-		//"\x00", "\x01", "\x02", "\x03", "\x04", "\x05", "\x06",
-		//"\x07", "\x09", "\x0a", "\x0b", "\x0c", "\x0d", "\x0e", "\x0f", "\x10", "\x11", "\x12", "\x13", "\x14",
-		//"\x15", "\x16", "\x17", "\x18", "\x19", "\x1a",
+		"\x00", "\x01", "\x02", //"\x04", "\x05", "\x06",
+		//"\x07", "\x09", "\x0a", "\x0b", "\x0c", "\x0e", "\x0f", "\x10", "\x11", "\x12", "\x13", "\x14",
+		//"\x15", "\x17", "\x19", "\x1a",
 		// Ascii non-printable characters
 		// "\x7f", "\x80", "\x81", "\x82", "\x83", "\x84", "\x85", "\x86", "\x87", "\x88", "\x89",
 		// "\x8a", "\x8b", "\x8c", "\x8d", "\x8e", "\x8f", "\x90", "\x91", "\x92", "\x93", "\x94",
@@ -74,100 +75,115 @@ func TestConnection(t *testing.T) {
 	// for _, BUFFER_SIZE := range BufSizes {
 	// wg := &sync.WaitGroup{}
 	// wg.Add(len(DELIMITER_LIST) * len(UseB64))
+	var wg sync.WaitGroup
+	var mu sync.Mutex
 	for _, USE_CRYPTO := range UseB64 {
 		for _, USAGE := range UseB64 {
 			ct += len(DELIMITER_LIST) / 2
 			// go func(wg *sync.WaitGroup, DELIMITER_LIST []string, USAGE bool, BUFFER_SIZE int) {
-			for _, DELIMITER := range DELIMITER_LIST {
-				ct++
-
-				conf := quickproto.NewConfig([]byte(DELIMITER), USAGE, USE_CRYPTO, 2048, quickproto.Base64Encoding, quickproto.Base64Decoding)
-				conf.PrivateKey = privkey
-				conf.PublicKey = pubkey
-				IP := "127.0.0.1"
-				Port := 8080 + ct
-				s := server.New(IP, Port, conf)
-				go func(t *testing.T, s *server.Server) {
-					s.Listen()
-					for {
-						_, client, _ := s.Accept()
-						msg, err := s.Read(client)
-						t.Log("Server key:", client.Key)
-						if err != nil {
-							t.Error(err)
-						}
-						newmsg := conf.NewMessage()
-						_, err = msg.Generate()
-						if err != nil {
-							t.Error(err)
-						}
-						for k, v := range msg.Headers {
-							for _, v2 := range v {
-								newmsg.AddHeader(k, v2)
+			wg.Add(1)
+			go func(wag *sync.WaitGroup, mut *sync.Mutex, DELIMITER_LIST []string, USAGE bool, USE_CRYPTO bool) {
+				defer wg.Done()
+				for _, DELIMITER := range DELIMITER_LIST {
+					conf := quickproto.NewConfig([]byte(DELIMITER), USAGE, USE_CRYPTO, 2048, quickproto.Base64Encoding, quickproto.Base64Decoding)
+					conf.PrivateKey = privkey
+					conf.PublicKey = pubkey
+					conf.Included_info = []int{
+						quickproto.INCLUDE_CPU,
+						quickproto.INCLUDE_MEM,
+					}
+					IP := "127.0.0.1"
+					mut.Lock()
+					ct++
+					Port := 8080 + ct
+					s := server.New(IP, Port, conf)
+					go func(t *testing.T, s *server.Server) {
+						s.Listen()
+						for {
+							_, client, err := s.Accept()
+							if err != nil {
+								t.Error(err)
+							}
+							msg, err := s.Read(client)
+							t.Log("Server key:", client.Key)
+							t.Log("Server Sysinfo:", client.SysInfo)
+							if err != nil {
+								t.Error(err)
+							}
+							newmsg := conf.NewMessage()
+							_, err = msg.Generate()
+							if err != nil {
+								t.Error(err)
+							}
+							for k, v := range msg.Headers {
+								for _, v2 := range v {
+									newmsg.AddHeader(k, v2)
+								}
+							}
+							newmsg.AddContent(msg.Body)
+							for _, v := range msg.Files {
+								newmsg.AddFile(v)
+							}
+							err = s.Write(client, newmsg)
+							if err != nil {
+								t.Error(err)
 							}
 						}
-						newmsg.AddContent(msg.Body)
-						for _, v := range msg.Files {
-							newmsg.AddFile(v)
-						}
-						err = s.Write(client, newmsg)
-						if err != nil {
-							t.Error(err)
-						}
+					}(t, s)
+					c := client.New(IP, Port, conf, nil)
+					mut.Unlock()
+					c.Connect()
+					t.Log("Client key: ", c.AesKey)
+					msg := conf.NewMessage()
+					// Add headers to message
+					msg.AddHeader("Test", "Test")
+					msg.AddHeader("Test2", "Test2")
+					msg.AddHeader("Test3", "Test3")
+					// Add files to message
+					msg.AddRawFile("test.txt", []byte("Hello World"))
+					msg.AddRawFile("test2.txt", []byte("Hello World"))
+					msg.AddRawFile("test3.txt", []byte("Hello World"))
+					// Add body to message
+					msg.AddContent("Hello World")
+					c.Write(msg)
+					newmsg, err := c.Read()
+					if err != nil {
+						t.Error(err)
 					}
-				}(t, s)
-				c := client.New(IP, Port, conf, nil)
-				c.Connect()
-				t.Log("Client key: ", c.AesKey)
-				msg := conf.NewMessage()
-				// Add headers to message
-				msg.AddHeader("Test", "Test")
-				msg.AddHeader("Test2", "Test2")
-				msg.AddHeader("Test3", "Test3")
-				// Add files to message
-				msg.AddRawFile("test.txt", []byte("Hello World"))
-				msg.AddRawFile("test2.txt", []byte("Hello World"))
-				msg.AddRawFile("test3.txt", []byte("Hello World"))
-				// Add body to message
-				msg.AddContent("Hello World")
-				c.Write(msg)
-				newmsg, err := c.Read()
-				if err != nil {
-					t.Error(err)
-				}
 
-				// Validate
-				if newmsg.Headers["Test"][0] != "Test" {
-					FAILED_DELIMITERS = append(FAILED_DELIMITERS, errors.New("Current Delimiter:"+DELIMITER+"\nHeader Test not equal to Test"))
+					// Validate
+					if newmsg.Headers["Test"][0] != "Test" {
+						FAILED_DELIMITERS = append(FAILED_DELIMITERS, errors.New("Current Delimiter:"+DELIMITER+"\nHeader Test not equal to Test"))
+					}
+					if newmsg.Headers["Test2"][0] != "Test2" {
+						FAILED_DELIMITERS = append(FAILED_DELIMITERS, errors.New("Current Delimiter:"+DELIMITER+"\nHeader Test2 not equal to Test2"))
+					}
+					if newmsg.Headers["Test3"][0] != "Test3" {
+						FAILED_DELIMITERS = append(FAILED_DELIMITERS, errors.New("Current Delimiter:"+DELIMITER+"\nHeader Test3 not equal to Test3"))
+					}
+					if newmsg.Files["test.txt"].Name != "test.txt" {
+						FAILED_DELIMITERS = append(FAILED_DELIMITERS, errors.New("Current Delimiter:"+DELIMITER+"\nFile test.txt no file."))
+					}
+					if newmsg.Files["test2.txt"].Name != "test2.txt" {
+						FAILED_DELIMITERS = append(FAILED_DELIMITERS, errors.New("Current Delimiter:"+DELIMITER+"\nFile test2.txt no file."))
+					}
+					if newmsg.Files["test3.txt"].Name != "test3.txt" {
+						FAILED_DELIMITERS = append(FAILED_DELIMITERS, errors.New("Current Delimiter:"+DELIMITER+"\nFile test3.txt no file."))
+					}
+					if string(newmsg.Files["test.txt"].Data) != "Hello World" {
+						FAILED_DELIMITERS = append(FAILED_DELIMITERS, errors.New("Current Delimiter:"+DELIMITER+"\nFile test.txt data not equal to Hello World"))
+					}
+					if string(newmsg.Files["test2.txt"].Data) != "Hello World" {
+						FAILED_DELIMITERS = append(FAILED_DELIMITERS, errors.New("Current Delimiter:"+DELIMITER+"\nFile test2.txt data not equal to Hello World"))
+					}
+					if string(newmsg.Files["test3.txt"].Data) != "Hello World" {
+						FAILED_DELIMITERS = append(FAILED_DELIMITERS, errors.New("Current Delimiter:"+DELIMITER+"\nFile test3.txt data not equal to Hello World"))
+					}
+					if string(newmsg.Body) != "Hello World" {
+						FAILED_DELIMITERS = append(FAILED_DELIMITERS, errors.New("Current Delimiter:"+DELIMITER+"\nBody is empty."))
+					}
 				}
-				if newmsg.Headers["Test2"][0] != "Test2" {
-					FAILED_DELIMITERS = append(FAILED_DELIMITERS, errors.New("Current Delimiter:"+DELIMITER+"\nHeader Test2 not equal to Test2"))
-				}
-				if newmsg.Headers["Test3"][0] != "Test3" {
-					FAILED_DELIMITERS = append(FAILED_DELIMITERS, errors.New("Current Delimiter:"+DELIMITER+"\nHeader Test3 not equal to Test3"))
-				}
-				if newmsg.Files["test.txt"].Name != "test.txt" {
-					FAILED_DELIMITERS = append(FAILED_DELIMITERS, errors.New("Current Delimiter:"+DELIMITER+"\nFile test.txt no file."))
-				}
-				if newmsg.Files["test2.txt"].Name != "test2.txt" {
-					FAILED_DELIMITERS = append(FAILED_DELIMITERS, errors.New("Current Delimiter:"+DELIMITER+"\nFile test2.txt no file."))
-				}
-				if newmsg.Files["test3.txt"].Name != "test3.txt" {
-					FAILED_DELIMITERS = append(FAILED_DELIMITERS, errors.New("Current Delimiter:"+DELIMITER+"\nFile test3.txt no file."))
-				}
-				if string(newmsg.Files["test.txt"].Data) != "Hello World" {
-					FAILED_DELIMITERS = append(FAILED_DELIMITERS, errors.New("Current Delimiter:"+DELIMITER+"\nFile test.txt data not equal to Hello World"))
-				}
-				if string(newmsg.Files["test2.txt"].Data) != "Hello World" {
-					FAILED_DELIMITERS = append(FAILED_DELIMITERS, errors.New("Current Delimiter:"+DELIMITER+"\nFile test2.txt data not equal to Hello World"))
-				}
-				if string(newmsg.Files["test3.txt"].Data) != "Hello World" {
-					FAILED_DELIMITERS = append(FAILED_DELIMITERS, errors.New("Current Delimiter:"+DELIMITER+"\nFile test3.txt data not equal to Hello World"))
-				}
-				if string(newmsg.Body) != "Hello World" {
-					FAILED_DELIMITERS = append(FAILED_DELIMITERS, errors.New("Current Delimiter:"+DELIMITER+"\nBody is empty."))
-				}
-			}
+			}(&wg, &mu, DELIMITER_LIST, USAGE, USE_CRYPTO)
 			// wg.Done()
 			// }(wg, DELIMITER_LIST, USAGE, BUFFER_SIZE)
 			for _, err := range FAILED_DELIMITERS {
@@ -175,4 +191,5 @@ func TestConnection(t *testing.T) {
 			}
 		}
 	}
+	wg.Wait()
 }

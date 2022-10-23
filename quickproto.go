@@ -23,7 +23,7 @@ var STANDARD_DELIM []byte = []byte("$")
 
 // These are tested not to work.
 var BANNED_DELIMITERS = []string{
-	"=", "_", "\x08",
+	"=", "_", "\x08", "\x1e",
 	"A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z",
 	"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z",
 }
@@ -34,10 +34,12 @@ type Message struct {
 	Delimiter   []byte
 	Headers     map[string][]string
 	Body        []byte
-	Files       map[string]MessageFile
+	Files       map[string]*MessageFile
 	UseEncoding bool
 	Encode_func func([]byte) []byte
 	Decode_func func([]byte) ([]byte, error)
+	F_Encoder   func([]byte) []byte
+	F_Decoder   func([]byte) ([]byte, error)
 }
 
 // NewMessage creates a new Message.
@@ -50,10 +52,12 @@ func NewMessage(delimiter []byte, useencoding bool, encode_func func([]byte) []b
 		Delimiter:   delimiter,
 		Headers:     make(map[string][]string),
 		Body:        []byte{},
-		Files:       make(map[string]MessageFile),
+		Files:       make(map[string]*MessageFile),
 		UseEncoding: useencoding,
 		Encode_func: encode_func,
 		Decode_func: decode_func,
+		F_Encoder:   Base32Encoding,
+		F_Decoder:   Base32Decoding,
 	}
 }
 
@@ -65,12 +69,7 @@ func (m *Message) AddHeader(key string, value string) error {
 	if strings.Contains(value, string(m.Delimiter)) {
 		return errors.New("header value cannot contain delimiter")
 	}
-	_, ok := m.Headers[key]
-	if ok {
-		m.Headers[key] = append(m.Headers[key], value)
-	} else {
-		m.Headers[key] = []string{value}
-	}
+	m.Headers[key] = append(m.Headers[key], value)
 	return nil
 }
 
@@ -79,7 +78,7 @@ func (m *Message) AddHeader(key string, value string) error {
 func (m *Message) AddContent(content any) error {
 	switch content := content.(type) {
 	case string:
-		m.Body = append(m.Body, []byte(content)...)
+		m.Body = append(m.Body, content...)
 	case []byte:
 		m.Body = append(m.Body, content...)
 	default:
@@ -89,15 +88,13 @@ func (m *Message) AddContent(content any) error {
 }
 
 // Add a MessageFile to the message.
-func (m *Message) AddFile(file MessageFile) error {
+func (m *Message) AddFile(file *MessageFile) {
 	m.Files[file.Name] = file
-	return nil
 }
 
 // Create a MessageFile, and add it to the message.
-func (m *Message) AddRawFile(name string, data []byte) error {
-	m.Files[name] = MessageFile{Name: name, Data: data}
-	return nil
+func (m *Message) AddRawFile(name string, data []byte) {
+	m.Files[name] = &MessageFile{Name: name, Data: data}
 }
 
 // Header delimiter, returns DELIMITER + DELIMITER
@@ -190,13 +187,13 @@ func (m *Message) Parse() (*Message, error) {
 				return
 			}
 			file_name := string(file_data[0])
-			// File data should always be base64 encoded!
-			file_data_bytes, err := Base16Decoding(file_data[1])
+			// File data should always be encoded!
+			file_data_bytes, err := m.F_Decoder(file_data[1])
 			if err != nil {
 				return
 			}
 			mu.Lock()
-			m.Files[file_name] = MessageFile{Name: file_name, Data: file_data_bytes}
+			m.Files[file_name] = &MessageFile{Name: file_name, Data: file_data_bytes}
 			mu.Unlock()
 		}(file, &wg, &mu)
 	}
@@ -227,6 +224,28 @@ func (m *Message) Generate() (*Message, error) {
 				val_len := len(str)
 				total_len = total_len + val_len + len(m.Delimiter)
 			}
+
+			////////////////////////////////////////////////
+			// You would think concurrency would be faster
+			// but it's actually slower. Go figure.
+			////////////////////////////////////////////////
+			//
+			//// Create buffer for length of current header line
+			//var total_len int
+			//var lenChan = make(chan int, len(value))
+			//// Start goroutine for each value
+			//for _, val := range value {
+			//	go func(val string, lenChan chan int) {
+			//		// Get length of current value + delimiter
+			//		lenChan <- len(val) + len(m.Delimiter)
+			//	}(val, lenChan)
+			//}
+			//// Add length of each value to total length
+			//for i := 0; i < len(value); i++ {
+			//	total_len += <-lenChan
+			//}
+			////////////////////////////////////////////////
+
 			// Create headerline
 			headerline := make([]byte, len(key)+len(m.Delimiter)+total_len+len(m.Delimiter))
 			// Copy key to headerline
@@ -257,11 +276,11 @@ func (m *Message) Generate() (*Message, error) {
 	wg.Add(len(m.Files))
 	for _, file := range m.Files {
 		// Write the file to the body
-		go func(file MessageFile, buffer *bytes.Buffer, wg *sync.WaitGroup, mu *sync.Mutex) {
+		go func(file *MessageFile, buffer *bytes.Buffer, wg *sync.WaitGroup, mu *sync.Mutex) {
 			defer wg.Done()
 			// Create buffer for length of current file line
-			// Base 64 encode file data
-			fdata := Base16Encoding(file.Data)
+			// Encode file data
+			fdata := m.F_Encoder(file.Data)
 			// Get size of buffer for all file data and delimiters
 			total_len := len(file.Name) + len(m.HeaderDelimiter()) + len(fdata) + len(m.FileDelimiter())
 			fileline := make([]byte, total_len)
@@ -298,4 +317,12 @@ func (m *Message) Generate() (*Message, error) {
 // Get content length of the message.
 func (m *Message) ContentLength() int {
 	return len(m.Data)
+}
+
+func (m *Message) FileSizes() map[string]int {
+	files := make(map[string]int)
+	for _, file := range m.Files {
+		files[file.Name] = file.Size()
+	}
+	return files
 }
