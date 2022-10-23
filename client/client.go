@@ -19,7 +19,7 @@ type Client struct {
 	AesKey    *[32]byte
 }
 
-// Initiate a new client
+// Initiate a new client.
 func New(ip string, port int, conf *quickproto.Config, onmessage func(*quickproto.Message)) *Client {
 	return &Client{
 		IP:        ip,
@@ -30,12 +30,12 @@ func New(ip string, port int, conf *quickproto.Config, onmessage func(*quickprot
 	}
 }
 
-// Addr returns the address of the server, in the form "ip:port"
+// Addr returns the address of the server, in the form "ip:port".
 func (c *Client) Addr() string {
 	return quickproto.CraftAddr(c.IP, c.PORT)
 }
 
-// Connect to the server
+// Connect to the server.
 func (c *Client) Connect() error {
 	// If we are using crypto, the first message sent by the client will be the AES key.
 	// If the client is provided with a public key, it will use it to encrypt the AES key.
@@ -68,12 +68,12 @@ func (c *Client) Connect() error {
 	return err
 }
 
-// Terminate the connection
+// Terminate the connection.
 func (c *Client) Terminate() error {
 	return c.Conn.Close()
 }
 
-// Read a message from the server
+// Read a message from the server.
 func (c *Client) Read() (*quickproto.Message, error) {
 	msg, err := quickproto.ReadConn(c.Conn, c.CONFIG, c.AesKey)
 	if err != nil {
@@ -82,12 +82,12 @@ func (c *Client) Read() (*quickproto.Message, error) {
 	return msg, nil
 }
 
-// Write a message to the server
+// Write a message to the server.
 func (c *Client) Write(msg *quickproto.Message) error {
 	return quickproto.WriteConn(c.Conn, msg, c.AesKey)
 }
 
-// Listen for messages from the server
+// Listen for messages from the server.
 func (c *Client) Listen() error {
 	for {
 		msg, err := c.Read()

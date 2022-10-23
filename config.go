@@ -7,20 +7,20 @@ import (
 
 // General configuration to use for client and server.
 type Config struct {
-	// Delimiter used for separating message data
+	// Delimiter used for separating message data.
 	Delimiter []byte
 	// Use encoding?
 	UseEncoding bool
 	// Use crypto?
 	UseCrypto bool
-	// Buffer size
+	// Buffer size.
 	BufSize int
-	// Encoding/Decoding functions
+	// Encoding/Decoding functions.
 	Encode_func func([]byte) []byte
 	Decode_func func([]byte) ([]byte, error)
 	// RSA keys
-	PrivateKey *rsa.PrivateKey // Server-side
-	PublicKey  *rsa.PublicKey  // Client-side
+	PrivateKey *rsa.PrivateKey // Server-side.
+	PublicKey  *rsa.PublicKey  // Client-side.
 }
 
 // NewConfig creates a new Config.

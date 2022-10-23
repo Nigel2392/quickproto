@@ -8,8 +8,8 @@ import (
 	"github.com/Nigel2392/simplecrypto/aes"
 )
 
-// Convenience function to craft an address from an IP and a port
-// Port could be string or int, IP must be string
+// Convenience function to craft an address from an IP and a port.
+// Port could be string or int, IP must be string.
 func CraftAddr(ip string, port any) string {
 	switch port := port.(type) {
 	case int:
@@ -21,22 +21,22 @@ func CraftAddr(ip string, port any) string {
 	}
 }
 
-// ReadConn reads a message from a connection
+// ReadConn reads a message from a connection.
 func ReadConn(conn net.Conn, conf *Config, aes_key *[32]byte) (*Message, error) {
 	msg := NewMessage(conf.Delimiter, conf.UseEncoding, conf.Encode_func, conf.Decode_func)
 	buf := make([]byte, conf.BufSize)
 	var data []byte
-	// read until ending delimiter is found
+	// read until ending delimiter is found.
 	for !bytes.Contains(data, msg.EndingDelimiter()) {
-		// read data from connection
+		// read data from connection.
 		n, err := conn.Read(buf)
 		if err != nil {
 			return nil, err
 		}
 		data = append(data, buf[:n]...)
-		// flush buffer
+		// flush buffer.
 	}
-	// decrypt data if needed
+	// decrypt data if needed.
 	if aes_key != nil {
 		var err error
 		data = bytes.TrimSuffix(data, msg.EndingDelimiter())
@@ -49,9 +49,9 @@ func ReadConn(conn net.Conn, conf *Config, aes_key *[32]byte) (*Message, error) 
 	return msg.Parse()
 }
 
-// WriteConn writes a message to a connection and encrypts it if needed
+// WriteConn writes a message to a connection and encrypts it if needed.
 func WriteConn(conn net.Conn, msg *Message, aes_key *[32]byte) error {
-	// Write data to connection
+	// Write data to connection.
 	send, err := msg.Generate()
 	if err != nil {
 		return err

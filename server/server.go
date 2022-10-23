@@ -8,25 +8,25 @@ import (
 	simple_rsa "github.com/Nigel2392/simplecrypto/rsa"
 )
 
-// Server struct
+// Server struct.
 type Server struct {
-	// Address of the server
+	// Address of the server.
 	IP   string
 	PORT any
-	// Listener for connections
+	// Listener for connections.
 	Listener net.Listener
-	// General configuration, use the same config both CLIENT and SERVER-
+	// General configuration.
 	CONFIG  *quickproto.Config
 	Clients map[string]*Client
 }
 
-// Server-side client
+// Server-side client.
 type Client struct {
 	Conn net.Conn
 	Key  *[32]byte
 }
 
-// Initialize a new server
+// Initialize a new server.
 func New(ip string, port int, conf *quickproto.Config) *Server {
 	return &Server{
 		IP:       ip,
@@ -37,7 +37,7 @@ func New(ip string, port int, conf *quickproto.Config) *Server {
 	}
 }
 
-// Get the address of the server
+// Get the address of the server.
 func (s *Server) Addr() string {
 	return quickproto.CraftAddr(s.IP, s.PORT)
 }
@@ -54,7 +54,7 @@ func (s *Server) Terminate() error {
 	return s.Listener.Close()
 }
 
-// Accept a new client connection
+// Accept a new client connection.
 // If the server is using crypto, the first message received from the client will be the AES key.
 // If the server is provided with a private key, it will use it to decrypt the AES key.
 // The server will then use the AES key to decrypt and encrypt all future messages.
@@ -71,7 +71,7 @@ func (s *Server) Accept() (net.Conn, *Client, error) {
 		Conn: conn,
 	}
 	if s.CONFIG.UseCrypto {
-		// read aes key from client
+		// read aes key from client.
 		msg, err := s.Read(client)
 		if err != nil {
 			return nil, &Client{}, err
@@ -88,7 +88,7 @@ func (s *Server) Accept() (net.Conn, *Client, error) {
 		if typ[0] != "aes_key" {
 			return nil, &Client{}, errors.New("client did not send aes key")
 		}
-		// convert key to byte array
+		// convert key to byte array.
 		aes_key := new([32]byte)
 		copy(aes_key[:], msg.Body)
 		client.Key = aes_key
@@ -97,23 +97,23 @@ func (s *Server) Accept() (net.Conn, *Client, error) {
 	return conn, client, nil
 }
 
-// Read a message from a client
+// Read a message from a client.
 func (s *Server) Read(client *Client) (*quickproto.Message, error) {
 	return quickproto.ReadConn(client.Conn, s.CONFIG, client.Key)
 }
 
-// Write a message to a client
+// Write a message to a client.
 func (s *Server) Write(client *Client, msg *quickproto.Message) error {
 	return quickproto.WriteConn(client.Conn, msg, client.Key)
 }
 
-// Close a client connection
+// Close a client connection.
 func (s *Server) RemoveClient(conn net.Conn) error {
 	delete(s.Clients, conn.RemoteAddr().String())
 	return conn.Close()
 }
 
-// Broadcast a message to all clients
+// Broadcast a message to all clients.
 func (s *Server) Broadcast(msg *quickproto.Message) error {
 	for _, client := range s.Clients {
 		if err := s.Write(client, msg); err != nil {

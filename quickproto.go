@@ -18,10 +18,10 @@ import (
 // Ending delimiter example:
 // $$$$$$$$
 
-// Banned delimiters include:
-// = (equal sign)
-
+// Standard delimiter.
 var STANDARD_DELIM []byte = []byte("$")
+
+// These are tested not to work.
 var BANNED_DELIMITERS = []string{
 	"=", "_", "\x08",
 	"A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z",
@@ -57,6 +57,7 @@ func NewMessage(delimiter []byte, useencoding bool, encode_func func([]byte) []b
 	}
 }
 
+// Add a header to the message.
 func (m *Message) AddHeader(key string, value string) error {
 	if strings.Contains(key, string(m.Delimiter)) {
 		return errors.New("header key cannot contain delimiter")
@@ -73,6 +74,8 @@ func (m *Message) AddHeader(key string, value string) error {
 	return nil
 }
 
+// Add content to the message.
+// Either add []bytes, or a string.
 func (m *Message) AddContent(content any) error {
 	switch content := content.(type) {
 	case string:
