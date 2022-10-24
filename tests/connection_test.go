@@ -142,6 +142,10 @@ func TestConnection(t *testing.T) {
 					msg.AddRawFile("test2.txt", []byte("Hello World"))
 					msg.AddRawFile("test3.txt", []byte("Hello World"))
 					// Add body to message
+					var hasBody bool = USAGE && !USE_CRYPTO
+					if hasBody {
+						msg.AddContent("Hello World")
+					}
 					// msg.AddContent("Hello World")
 					c.Write(msg)
 					newmsg, err := c.Read()
@@ -150,8 +154,14 @@ func TestConnection(t *testing.T) {
 					}
 					t.Log(strings.Repeat("-", 50))
 					t.Log("Message Headers: ", newmsg.Headers)
+					t.Log("Using crypto: ", USE_CRYPTO)
+					t.Log("Using base64: ", USAGE)
 					t.Log("Message Body: ", string(newmsg.Body))
-					t.Log("Message Files: ", newmsg.Files)
+					t.Log("Message Files: ")
+					for _, file := range newmsg.Files {
+						t.Log("  File Name: ", file.Name)
+						t.Log("  File Data: ", string(file.Data)+"\n")
+					}
 					t.Log("Message Delimiter: ", string(newmsg.Delimiter), "(bytes:", newmsg.Delimiter, ")")
 					t.Log("Message Data: ", string(newmsg.Data))
 					t.Log(strings.Repeat("-", 50))
@@ -193,8 +203,10 @@ func TestConnection(t *testing.T) {
 					if string(newmsg.Files["test3.txt"].Data) != "Hello World" {
 						FAILED_DELIMITERS = append(FAILED_DELIMITERS, errors.New("Current Delimiter:"+DELIMITER+"\nFile test3.txt data not equal to Hello World"))
 					}
-					if string(newmsg.Body) != "" {
+					if string(newmsg.Body) != "" && !hasBody {
 						FAILED_DELIMITERS = append(FAILED_DELIMITERS, errors.New("Current Delimiter:"+DELIMITER+"\nBody is not empty."))
+					} else if string(newmsg.Body) != "Hello World" && hasBody {
+						FAILED_DELIMITERS = append(FAILED_DELIMITERS, errors.New("Current Delimiter:"+DELIMITER+"\nBody not equal to Hello World"))
 					}
 				}
 			}(&wg, &mu, DELIMITER_LIST, USAGE, USE_CRYPTO)

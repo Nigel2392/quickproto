@@ -232,8 +232,7 @@ func TestEmptyBody(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	t.Log(msg)
-	t.Log(msg.Data)
+
 	if msg.Headers["key1"][0] != "value1" {
 		t.Error("Expected key1 to be value1")
 	}

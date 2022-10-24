@@ -35,7 +35,7 @@ type Message struct {
 	Delimiter   []byte
 	Headers     map[string][]string
 	Body        []byte
-	Files       map[string]*MessageFile
+	Files       map[string]*messageFile
 	UseEncoding bool
 	Encode_func func([]byte) []byte
 	Decode_func func([]byte) ([]byte, error)
@@ -53,7 +53,7 @@ func NewMessage(delimiter []byte, useencoding bool, encode_func func([]byte) []b
 		Delimiter:   delimiter,
 		Headers:     make(map[string][]string),
 		Body:        []byte{},
-		Files:       make(map[string]*MessageFile),
+		Files:       make(map[string]*messageFile),
 		UseEncoding: useencoding,
 		Encode_func: encode_func,
 		Decode_func: decode_func,
@@ -89,13 +89,13 @@ func (m *Message) AddContent(content any) error {
 }
 
 // Add a MessageFile to the message.
-func (m *Message) AddFile(file *MessageFile) {
+func (m *Message) AddFile(file *messageFile) {
 	m.Files[file.Name] = file
 }
 
 // Create a MessageFile, and add it to the message.
 func (m *Message) AddRawFile(name string, data []byte) {
-	m.Files[name] = &MessageFile{Name: name, Data: data}
+	m.Files[name] = &messageFile{Name: name, Data: data}
 }
 
 // Header delimiter, returns DELIMITER + DELIMITER
@@ -183,23 +183,23 @@ func (m *Message) Parse() (*Message, error) {
 	for _, file := range body_data {
 		go func(file []byte, wg *sync.WaitGroup, mu *sync.Mutex) {
 			defer wg.Done()
-			file_data := bytes.Split(file, m.HeaderDelimiter())
-			if len(file_data) != 2 {
-				return
-			}
-			file_name := string(file_data[0])
+			file_data_list := bytes.SplitN(file, header_delimiter, 2)
+			file_name := string(file_data_list[0])
 			// File data should always be encoded!
-			file_data_bytes, err := m.F_Decoder(file_data[1])
+			file_data, err := m.F_Decoder(file_data_list[1])
 			if err != nil {
 				return
 			}
+			mf := NewmessageFile(file_name, file_data)
 			mu.Lock()
-			m.Files[file_name] = &MessageFile{Name: file_name, Data: file_data_bytes}
+			m.Files[file_name] = &mf
 			mu.Unlock()
 		}(file, &wg, &mu)
 	}
 	wg.Wait()
-	if string(body) != string([]byte{0x00}) {
+	if len(body) == 1 && body[0] == 0x00 {
+		m.Body = []byte{}
+	} else {
 		m.Body = body
 	}
 	// m.Parsed = true
@@ -214,6 +214,11 @@ func (m *Message) Generate() (*Message, error) {
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 	header_delimiter := m.HeaderDelimiter()
+	file_delimiter := m.FileDelimiter()
+	LenDelim := len(m.Delimiter)
+	lenHDelim := LenDelim * 2
+	lenFDelim := lenHDelim * 3
+
 	// Create headers
 	for key, value := range m.Headers {
 		wg.Add(1)
@@ -225,7 +230,7 @@ func (m *Message) Generate() (*Message, error) {
 			for _, str := range value {
 				// Append key and value to headerline
 				val_len := len(str)
-				total_len = total_len + val_len + len(m.Delimiter)
+				total_len = total_len + val_len + LenDelim
 			}
 
 			////////////////////////////////////////////////
@@ -240,7 +245,7 @@ func (m *Message) Generate() (*Message, error) {
 			//for _, val := range value {
 			//	go func(val string, lenChan chan int) {
 			//		// Get length of current value + delimiter
-			//		lenChan <- len(val) + len(m.Delimiter)
+			//		lenChan <- len(val) + lenDelim
 			//	}(val, lenChan)
 			//}
 			//// Add length of each value to total length
@@ -250,16 +255,16 @@ func (m *Message) Generate() (*Message, error) {
 			////////////////////////////////////////////////
 
 			// Create headerline
-			headerline := make([]byte, len(key)+len(m.Delimiter)+total_len+len(m.Delimiter))
+			headerline := make([]byte, len(key)+LenDelim+total_len+LenDelim)
 			// Copy key to headerline
 			copy(headerline, key)
 			copy(headerline[len(key):], m.Delimiter)
 			// Copy values to headerline
-			current_pos := len(key) + len(m.Delimiter)
+			current_pos := len(key) + LenDelim
 			for _, str := range value {
 				copy(headerline[current_pos:], str)
 				copy(headerline[current_pos+len(str):], m.Delimiter)
-				current_pos = current_pos + len(str) + len(m.Delimiter)
+				current_pos = current_pos + len(str) + LenDelim
 			}
 			// Set last delimiter
 			copy(headerline[current_pos:], m.Delimiter)
@@ -279,19 +284,20 @@ func (m *Message) Generate() (*Message, error) {
 	wg.Add(len(m.Files))
 	for _, file := range m.Files {
 		// Write the file to the body
-		go func(file *MessageFile, buffer *bytes.Buffer, wg *sync.WaitGroup, mu *sync.Mutex) {
+		go func(file *messageFile, buffer *bytes.Buffer, wg *sync.WaitGroup, mu *sync.Mutex) {
 			defer wg.Done()
 			// Create buffer for length of current file line
 			// Encode file data
 			fdata := m.F_Encoder(file.Data)
 			// Get size of buffer for all file data and delimiters
-			total_len := len(file.Name) + len(m.HeaderDelimiter()) + len(fdata) + len(m.FileDelimiter())
+			total_len := len(file.Name) + lenHDelim + len(fdata) + lenFDelim
 			fileline := make([]byte, total_len)
 			// Copy data to fileline
 			copy(fileline, file.Name)
-			copy(fileline[len(file.Name):], m.HeaderDelimiter())
-			copy(fileline[len(file.Name)+len(m.HeaderDelimiter()):], fdata)
-			copy(fileline[len(file.Name)+len(m.HeaderDelimiter())+len(fdata):], m.FileDelimiter())
+			copy(fileline[len(file.Name):], header_delimiter)
+			copy(fileline[len(file.Name)+lenHDelim:], fdata)
+			copy(fileline[len(file.Name)+lenHDelim+len(fdata):], file_delimiter)
+
 			// Lock the mutex to prevent datarace
 			mu.Lock()
 			// Append fileline to buffer
@@ -303,6 +309,8 @@ func (m *Message) Generate() (*Message, error) {
 	wg.Wait()
 	// Append body to buffer
 	bodybuffer.Write(m.Body)
+	// Write a NULL byte if body is empty.
+	// This is to prevent one of the files ending up as the body, when no body is provided.
 	if len(m.Body) == 0 {
 		bodybuffer.Write([]byte{0x00})
 	}

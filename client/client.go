@@ -58,6 +58,8 @@ func (c *Client) Connect() error {
 			if err != nil {
 				return err
 			}
+			//// Encode message body
+			//msg.Body = quickproto.Base16Encoding(msg.Body)
 		}
 		// Send message
 		err = c.Write(msg)
@@ -66,7 +68,6 @@ func (c *Client) Connect() error {
 		}
 		c.AesKey = aes_key
 	}
-
 	return err
 }
 

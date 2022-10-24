@@ -23,7 +23,7 @@ func CraftAddr(ip string, port any) string {
 
 // ReadConn reads a message from a connection.
 func ReadConn(conn net.Conn, conf *Config, aes_key *[32]byte) (*Message, error) {
-	msg := NewMessage(conf.Delimiter, conf.UseEncoding, conf.Encode_func, conf.Decode_func)
+	msg := conf.NewMessage()
 	buf := make([]byte, conf.BufSize)
 	var data []byte
 	// read until ending delimiter is found.
