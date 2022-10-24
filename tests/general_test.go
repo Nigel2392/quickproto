@@ -217,3 +217,36 @@ func TestGenerateAndParse(t *testing.T) {
 		t.Error("Expected body to be BODYBODYBODY")
 	}
 }
+
+func TestEmptyBody(t *testing.T) {
+	msg := quickproto.NewMessage([]byte("###"), true, quickproto.Base64Encoding, quickproto.Base64Decoding)
+	msg.AddHeader("key1", "value1")
+	msg.AddHeader("key1", "value2")
+	msg.AddHeader("key1", "value3")
+	msg.AddHeader("key2", "value2")
+	_, err := msg.Generate()
+	if err != nil {
+		t.Error(err)
+	}
+	_, err = msg.Parse()
+	if err != nil {
+		t.Error(err)
+	}
+	t.Log(msg)
+	t.Log(msg.Data)
+	if msg.Headers["key1"][0] != "value1" {
+		t.Error("Expected key1 to be value1")
+	}
+	if msg.Headers["key1"][1] != "value2" {
+		t.Error("Expected key1 to be value2")
+	}
+	if msg.Headers["key1"][2] != "value3" {
+		t.Error("Expected key1 to be value3")
+	}
+	if msg.Headers["key2"][0] != "value2" {
+		t.Error("Expected key2 to be value2")
+	}
+	if string(msg.Body) != "" {
+		t.Error("Expected body to be empty")
+	}
+}

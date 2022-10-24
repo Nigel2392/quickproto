@@ -6,6 +6,7 @@ package tests
 import (
 	"errors"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 
@@ -23,7 +24,7 @@ func TestConnection(t *testing.T) {
 		//// Ascii escape characters
 		"\x1b", "\x1c", "\x1d", "\x1f",
 		//// Ascii control characters
-		"\x00", "\x01", "\x02", //"\x04", "\x05", "\x06",
+		"\x01", "\x02", //"\x04", "\x05", "\x06",
 		//"\x07", "\x09", "\x0a", "\x0b", "\x0c", "\x0e", "\x0f", "\x10", "\x11", "\x12", "\x13", "\x14",
 		//"\x15", "\x17", "\x19", "\x1a",
 		// Ascii non-printable characters
@@ -88,10 +89,7 @@ func TestConnection(t *testing.T) {
 					conf := quickproto.NewConfig([]byte(DELIMITER), USAGE, USE_CRYPTO, 2048, quickproto.Base64Encoding, quickproto.Base64Decoding)
 					conf.PrivateKey = privkey
 					conf.PublicKey = pubkey
-					conf.Included_info = []int{
-						quickproto.INCLUDE_CPU,
-						quickproto.INCLUDE_MEM,
-					}
+					conf.Included_info = quickproto.IncludeAll
 					IP := "127.0.0.1"
 					mut.Lock()
 					ct++
@@ -144,12 +142,19 @@ func TestConnection(t *testing.T) {
 					msg.AddRawFile("test2.txt", []byte("Hello World"))
 					msg.AddRawFile("test3.txt", []byte("Hello World"))
 					// Add body to message
-					msg.AddContent("Hello World")
+					// msg.AddContent("Hello World")
 					c.Write(msg)
 					newmsg, err := c.Read()
 					if err != nil {
 						t.Error(err)
 					}
+					t.Log(strings.Repeat("-", 50))
+					t.Log("Message Headers: ", newmsg.Headers)
+					t.Log("Message Body: ", string(newmsg.Body))
+					t.Log("Message Files: ", newmsg.Files)
+					t.Log("Message Delimiter: ", string(newmsg.Delimiter), "(bytes:", newmsg.Delimiter, ")")
+					t.Log("Message Data: ", string(newmsg.Data))
+					t.Log(strings.Repeat("-", 50))
 
 					// Validate
 					if newmsg.Headers["Test"][0] != "Test" {
@@ -161,11 +166,20 @@ func TestConnection(t *testing.T) {
 					if newmsg.Headers["Test3"][0] != "Test3" {
 						FAILED_DELIMITERS = append(FAILED_DELIMITERS, errors.New("Current Delimiter:"+DELIMITER+"\nHeader Test3 not equal to Test3"))
 					}
+					if newmsg.Files["test.txt"] == nil {
+						t.Error("newmsg.Files[\"test.txt\"] == nil")
+					}
 					if newmsg.Files["test.txt"].Name != "test.txt" {
 						FAILED_DELIMITERS = append(FAILED_DELIMITERS, errors.New("Current Delimiter:"+DELIMITER+"\nFile test.txt no file."))
 					}
+					if newmsg.Files["test2.txt"] == nil {
+						t.Error("newmsg.Files[\"test2.txt\"] == nil")
+					}
 					if newmsg.Files["test2.txt"].Name != "test2.txt" {
 						FAILED_DELIMITERS = append(FAILED_DELIMITERS, errors.New("Current Delimiter:"+DELIMITER+"\nFile test2.txt no file."))
+					}
+					if newmsg.Files["test3.txt"] == nil {
+						t.Error("newmsg.Files[\"test3.txt\"] == nil")
 					}
 					if newmsg.Files["test3.txt"].Name != "test3.txt" {
 						FAILED_DELIMITERS = append(FAILED_DELIMITERS, errors.New("Current Delimiter:"+DELIMITER+"\nFile test3.txt no file."))
@@ -179,8 +193,8 @@ func TestConnection(t *testing.T) {
 					if string(newmsg.Files["test3.txt"].Data) != "Hello World" {
 						FAILED_DELIMITERS = append(FAILED_DELIMITERS, errors.New("Current Delimiter:"+DELIMITER+"\nFile test3.txt data not equal to Hello World"))
 					}
-					if string(newmsg.Body) != "Hello World" {
-						FAILED_DELIMITERS = append(FAILED_DELIMITERS, errors.New("Current Delimiter:"+DELIMITER+"\nBody is empty."))
+					if string(newmsg.Body) != "" {
+						FAILED_DELIMITERS = append(FAILED_DELIMITERS, errors.New("Current Delimiter:"+DELIMITER+"\nBody is not empty."))
 					}
 				}
 			}(&wg, &mu, DELIMITER_LIST, USAGE, USE_CRYPTO)

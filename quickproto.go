@@ -22,8 +22,9 @@ import (
 var STANDARD_DELIM []byte = []byte("$")
 
 // These are tested not to work.
+// Byte "\x00" is used as a body, when body is empty.
 var BANNED_DELIMITERS = []string{
-	"=", "_", "\x08", "\x1e",
+	"=", "_", "\x08", "\x1e", "\x00",
 	"A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z",
 	"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z",
 }
@@ -198,7 +199,9 @@ func (m *Message) Parse() (*Message, error) {
 		}(file, &wg, &mu)
 	}
 	wg.Wait()
-	m.Body = body
+	if string(body) != string([]byte{0x00}) {
+		m.Body = body
+	}
 	// m.Parsed = true
 	return m, nil
 }
@@ -300,6 +303,9 @@ func (m *Message) Generate() (*Message, error) {
 	wg.Wait()
 	// Append body to buffer
 	bodybuffer.Write(m.Body)
+	if len(m.Body) == 0 {
+		bodybuffer.Write([]byte{0x00})
+	}
 	if m.Encode_func != nil && m.Decode_func != nil && m.UseEncoding {
 		// If encoding is set, create buffer and encode body
 		buffer.Write(m.Encode_func(bodybuffer.Bytes()))
@@ -308,6 +314,16 @@ func (m *Message) Generate() (*Message, error) {
 		buffer.Write(bodybuffer.Bytes())
 	}
 	// Write ending delimiter to buffer
+	// Write ending delimiter to buffer
+	//if len(m.Files) == 0 && len(m.Body) == 0 {
+	// buffer.Write(m.EndingDelimiter())
+	//} else {
+	//	ending_delim := buffer.Bytes()[len(buffer.Bytes())-len(m.EndingDelimiter()):]
+	//	for !bytes.HasSuffix(ending_delim, m.EndingDelimiter()) {
+	//		buffer.Write(m.Delimiter)
+	//		ending_delim = buffer.Bytes()[len(buffer.Bytes())-len(m.EndingDelimiter()):]
+	//	}
+	//}
 	buffer.Write(m.EndingDelimiter())
 	m.Data = buffer.Bytes()
 	// m.Generated = true
