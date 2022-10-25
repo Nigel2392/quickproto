@@ -24,7 +24,7 @@ type Server struct {
 type Client struct {
 	Conn net.Conn
 	Key  *[32]byte
-	Data interface{}
+	Data any
 }
 
 // Initialize a new server.
