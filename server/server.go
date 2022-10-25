@@ -24,6 +24,7 @@ type Server struct {
 type Client struct {
 	Conn net.Conn
 	Key  *[32]byte
+	// Data is used for storing extra data about the client server side.
 	Data any
 }
 
