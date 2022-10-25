@@ -5,7 +5,6 @@ import (
 	"net"
 
 	"github.com/Nigel2392/quickproto"
-	"github.com/Nigel2392/quickproto/sysinfo"
 	simple_rsa "github.com/Nigel2392/simplecrypto/rsa"
 )
 
@@ -23,9 +22,8 @@ type Server struct {
 
 // Server-side client.
 type Client struct {
-	Conn    net.Conn
-	Key     *[32]byte
-	SysInfo *sysinfo.SysInfo
+	Conn net.Conn
+	Key  *[32]byte
 }
 
 // Initialize a new server.
@@ -79,9 +77,9 @@ func (s *Server) Accept() (net.Conn, *Client, error) {
 			return nil, &Client{}, err
 		}
 		if s.CONFIG.PrivateKey != nil {
-			//if msg.Body, err = quickproto.Base16Decoding(msg.Body); err != nil {
-			//	return nil, &Client{}, err
-			//}
+			if msg.Body, err = quickproto.Base16Decoding(msg.Body); err != nil {
+				return nil, &Client{}, err
+			}
 			if msg.Body, err = simple_rsa.Decrypt(msg.Body, s.CONFIG.PrivateKey); err != nil {
 				return nil, &Client{}, err
 			}
@@ -104,24 +102,7 @@ func (s *Server) Accept() (net.Conn, *Client, error) {
 
 // Read a message from a client.
 func (s *Server) Read(client *Client) (*quickproto.Message, error) {
-	msg, err := quickproto.ReadConn(client.Conn, s.CONFIG, client.Key)
-	if err != nil {
-		return &quickproto.Message{}, err
-	}
-	if len(s.CONFIG.Included_info) > 0 {
-		var info sysinfo.SysInfo
-		var sysinfo_json []byte
-		var err error
-		// Get info from header.
-		sysinfo_enc := msg.Headers["sysinfo"][0]
-		// Decode the sysinfo from base32.
-		if sysinfo_json, err = quickproto.Base64Decoding([]byte(sysinfo_enc)); err != nil {
-			return msg, err
-		}
-		client.SysInfo = info.FromJson(sysinfo_json)
-		delete(msg.Headers, "sysinfo")
-	}
-	return msg, nil
+	return quickproto.ReadConn(client.Conn, s.CONFIG, client.Key)
 }
 
 // Write a message to a client.

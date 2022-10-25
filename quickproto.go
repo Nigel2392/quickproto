@@ -24,7 +24,7 @@ var STANDARD_DELIM []byte = []byte("$")
 // These are tested not to work.
 // Byte "\x00" is used as a body, when body is empty.
 var BANNED_DELIMITERS = []string{
-	"=", "_", "\x08", "\x1e", "\x00",
+	"=", "_", "\x08", "\x1e", "\x00", "(", ")",
 	"A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z",
 	"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z",
 }
@@ -57,8 +57,8 @@ func NewMessage(delimiter []byte, useencoding bool, encode_func func([]byte) []b
 		UseEncoding: useencoding,
 		Encode_func: encode_func,
 		Decode_func: decode_func,
-		F_Encoder:   Base32Encoding,
-		F_Decoder:   Base32Decoding,
+		F_Encoder:   Base64Encoding,
+		F_Decoder:   Base64Decoding,
 	}
 }
 
@@ -197,9 +197,7 @@ func (m *Message) Parse() (*Message, error) {
 		}(file, &wg, &mu)
 	}
 	wg.Wait()
-	if len(body) == 1 && body[0] == 0x00 {
-		m.Body = []byte{}
-	} else {
+	if len(body) != 1 && body[0] != 0x00 {
 		m.Body = body
 	}
 	// m.Parsed = true
@@ -213,12 +211,14 @@ func (m *Message) Generate() (*Message, error) {
 	var buffer bytes.Buffer
 	var wg sync.WaitGroup
 	var mu sync.Mutex
-	header_delimiter := m.HeaderDelimiter()
-	file_delimiter := m.FileDelimiter()
-	LenDelim := len(m.Delimiter)
-	lenHDelim := LenDelim * 2
-	lenFDelim := lenHDelim * 3
-
+	// Predefine delimiters so we dont have to calculate them every time.
+	var (
+		header_delimiter = m.HeaderDelimiter()
+		file_delimiter   = m.FileDelimiter()
+		LenDelim         = len(m.Delimiter)
+		lenHDelim        = LenDelim * 2
+		lenFDelim        = lenHDelim * 3
+	)
 	// Create headers
 	for key, value := range m.Headers {
 		wg.Add(1)
@@ -232,28 +232,6 @@ func (m *Message) Generate() (*Message, error) {
 				val_len := len(str)
 				total_len = total_len + val_len + LenDelim
 			}
-
-			////////////////////////////////////////////////
-			// You would think concurrency would be faster
-			// but it's actually slower. Go figure.
-			////////////////////////////////////////////////
-			//
-			//// Create buffer for length of current header line
-			//var total_len int
-			//var lenChan = make(chan int, len(value))
-			//// Start goroutine for each value
-			//for _, val := range value {
-			//	go func(val string, lenChan chan int) {
-			//		// Get length of current value + delimiter
-			//		lenChan <- len(val) + lenDelim
-			//	}(val, lenChan)
-			//}
-			//// Add length of each value to total length
-			//for i := 0; i < len(value); i++ {
-			//	total_len += <-lenChan
-			//}
-			////////////////////////////////////////////////
-
 			// Create headerline
 			headerline := make([]byte, len(key)+LenDelim+total_len+LenDelim)
 			// Copy key to headerline
@@ -275,10 +253,6 @@ func (m *Message) Generate() (*Message, error) {
 			mu.Unlock()
 		}(key, value, &buffer, &wg, &mu)
 	}
-	// Wait for all goroutines to finish
-	wg.Wait()
-	// Create body
-	buffer.Write(header_delimiter)
 	// Get files
 	var bodybuffer bytes.Buffer
 	wg.Add(len(m.Files))
@@ -307,6 +281,9 @@ func (m *Message) Generate() (*Message, error) {
 	}
 	// Wait for all goroutines to finish
 	wg.Wait()
+	// Create body
+	buffer.Write(header_delimiter)
+
 	// Append body to buffer
 	bodybuffer.Write(m.Body)
 	// Write a NULL byte if body is empty.
@@ -321,17 +298,6 @@ func (m *Message) Generate() (*Message, error) {
 		// Else write body to buffer
 		buffer.Write(bodybuffer.Bytes())
 	}
-	// Write ending delimiter to buffer
-	// Write ending delimiter to buffer
-	//if len(m.Files) == 0 && len(m.Body) == 0 {
-	// buffer.Write(m.EndingDelimiter())
-	//} else {
-	//	ending_delim := buffer.Bytes()[len(buffer.Bytes())-len(m.EndingDelimiter()):]
-	//	for !bytes.HasSuffix(ending_delim, m.EndingDelimiter()) {
-	//		buffer.Write(m.Delimiter)
-	//		ending_delim = buffer.Bytes()[len(buffer.Bytes())-len(m.EndingDelimiter()):]
-	//	}
-	//}
 	buffer.Write(m.EndingDelimiter())
 	m.Data = buffer.Bytes()
 	// m.Generated = true

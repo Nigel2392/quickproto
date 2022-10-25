@@ -3,6 +3,7 @@ package quickproto
 import (
 	"os"
 	"path/filepath"
+	"strconv"
 )
 
 // Message file used for storing files sent inside the Message struct
@@ -27,7 +28,7 @@ func (f *messageFile) Size() int {
 
 // String returns the name of the file.
 func (f *messageFile) String() string {
-	return f.Name
+	return "[" + f.Name + ": " + strconv.Itoa(f.Size()) + " bytes]"
 }
 
 // Save the file to a path.

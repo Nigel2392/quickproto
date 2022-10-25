@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/base32"
 	"encoding/base64"
+	"encoding/gob"
 	"encoding/hex"
 	"io"
 )
@@ -48,4 +49,36 @@ func Base16Encoding(data []byte) []byte {
 // Hex decoding.
 func Base16Decoding(data []byte) ([]byte, error) {
 	return hex.DecodeString(string(data))
+}
+
+// Gob encoding.
+func GobEncoding(data []byte) []byte {
+	buf := bytes.NewBuffer(nil)
+	encoder := gob.NewEncoder(buf)
+	encoder.Encode(data)
+	return buf.Bytes()
+}
+
+// Gob decoding.
+func GobDecoding(data []byte) ([]byte, error) {
+	buf := bytes.NewBuffer(data)
+	decoder := gob.NewDecoder(buf)
+	var decoded []byte
+	err := decoder.Decode(&decoded)
+	return decoded, err
+}
+
+func KeyEncoder(key *[32]byte) []byte {
+	b_key := key[:]
+	return GobEncoding(b_key)
+}
+
+func KeyDecoder(data []byte) (*[32]byte, error) {
+	b_key, err := GobDecoding(data)
+	if err != nil {
+		return nil, err
+	}
+	var key [32]byte
+	copy(key[:], b_key)
+	return &key, nil
 }

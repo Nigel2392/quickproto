@@ -5,7 +5,6 @@ import (
 	"net"
 
 	"github.com/Nigel2392/quickproto"
-	"github.com/Nigel2392/quickproto/sysinfo"
 	"github.com/Nigel2392/simplecrypto/aes"
 	simple_rsa "github.com/Nigel2392/simplecrypto/rsa"
 )
@@ -18,7 +17,6 @@ type Client struct {
 	CONFIG    *quickproto.Config
 	OnMessage func(*quickproto.Message)
 	AesKey    *[32]byte
-	sysinfo   *sysinfo.SysInfo
 }
 
 // Initiate a new client.
@@ -58,8 +56,8 @@ func (c *Client) Connect() error {
 			if err != nil {
 				return err
 			}
-			//// Encode message body
-			//msg.Body = quickproto.Base16Encoding(msg.Body)
+			// Encode message body
+			msg.Body = quickproto.Base16Encoding(msg.Body)
 		}
 		// Send message
 		err = c.Write(msg)
@@ -78,19 +76,11 @@ func (c *Client) Terminate() error {
 
 // Read a message from the server.
 func (c *Client) Read() (*quickproto.Message, error) {
-	msg, err := quickproto.ReadConn(c.Conn, c.CONFIG, c.AesKey)
-	if err != nil {
-		return nil, err
-	}
-	return msg, nil
+	return quickproto.ReadConn(c.Conn, c.CONFIG, c.AesKey)
 }
 
 // Write a message to the server.
 func (c *Client) Write(msg *quickproto.Message) error {
-	if len(c.CONFIG.Included_info) > 0 {
-		b16data := quickproto.Base64Encoding(sysinfo.GetSysInfo(c.CONFIG.Included_info).ToJSON())
-		msg.AddHeader("sysinfo", string(b16data))
-	}
 	return quickproto.WriteConn(c.Conn, msg, c.AesKey)
 }
 
