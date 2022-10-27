@@ -29,7 +29,7 @@ type Client struct {
 }
 
 // Initialize a new server.
-func New(ip string, port int, conf *quickproto.Config) *Server {
+func New(ip string, port any, conf *quickproto.Config) *Server {
 	return &Server{
 		IP:       ip,
 		PORT:     port,

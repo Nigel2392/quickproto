@@ -82,6 +82,8 @@ func (m *Message) AddContent(content any) error {
 		m.Body = append(m.Body, content...)
 	case []byte:
 		m.Body = append(m.Body, content...)
+	case *messageFile:
+		m.Files[content.Name] = content
 	default:
 		return errors.New("invalid content type")
 	}

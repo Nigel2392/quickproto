@@ -20,7 +20,8 @@ type Client struct {
 }
 
 // Initiate a new client.
-func New(ip string, port int, conf *quickproto.Config, onmessage func(*quickproto.Message)) *Client {
+func New(ip string, port any, conf *quickproto.Config, onmessage func(*quickproto.Message)) *Client {
+
 	return &Client{
 		IP:        ip,
 		PORT:      port,
