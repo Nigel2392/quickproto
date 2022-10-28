@@ -103,7 +103,7 @@ func (s *Server) Accept() (net.Conn, *Client, error) {
 			return nil, &Client{}, err
 		}
 		if s.CONFIG.PrivateKey != nil {
-			if msg.Body, err = quickproto.Base16Decoding(msg.Body); err != nil {
+			if msg.Body, err = quickproto.Base64Decoding(msg.Body); err != nil {
 				return nil, &Client{}, err
 			}
 			if msg.Body, err = simple_rsa.Decrypt(msg.Body, s.CONFIG.PrivateKey); err != nil {

@@ -40,7 +40,7 @@ func ReadConn(conn net.Conn, conf *Config, aes_key *[32]byte, compress bool) (*M
 	if compress {
 		data = bytes.TrimSuffix(data, msg.EndingDelimiter())
 		var err error
-		data, err = Decompress(data)
+		data, err = GZIPdecompress(data)
 		if err != nil {
 			return nil, err
 		}
@@ -77,7 +77,7 @@ func WriteConn(conn net.Conn, msg *Message, aes_key *[32]byte, compress bool) er
 		}
 	}
 	if compress {
-		send.Data, err = Compress(send.Data)
+		send.Data, err = GZIPcompress(send.Data)
 		if err != nil {
 			return err
 		}

@@ -84,7 +84,7 @@ func KeyDecoder(data []byte) (*[32]byte, error) {
 	return &key, nil
 }
 
-func Compress(data []byte) ([]byte, error) {
+func GZIPcompress(data []byte) ([]byte, error) {
 	// Create a new buffer
 	buffer := new(bytes.Buffer)
 
@@ -106,7 +106,7 @@ func Compress(data []byte) ([]byte, error) {
 	return buffer.Bytes(), nil
 }
 
-func Decompress(data []byte) ([]byte, error) {
+func GZIPdecompress(data []byte) ([]byte, error) {
 	// Create a new buffer
 	buffer := bytes.NewBuffer(data)
 

@@ -59,7 +59,7 @@ func (c *Client) Connect() error {
 				return err
 			}
 			// Encode message body
-			msg.Body = quickproto.Base16Encoding(msg.Body)
+			msg.Body = quickproto.Base64Encoding(msg.Body)
 		}
 		// Send message
 		err = c.Write(msg)
