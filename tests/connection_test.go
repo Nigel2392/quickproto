@@ -121,6 +121,10 @@ func TestConnection(t *testing.T) {
 							for _, v := range msg.Files {
 								newmsg.AddFile(v)
 							}
+							client.AddCookie("test", "test")
+							client.AddCookie("test", "test2")
+							client.AddCookie("test2", "test")
+
 							err = s.Write(client, newmsg)
 							if err != nil {
 								t.Error(err)
@@ -152,18 +156,19 @@ func TestConnection(t *testing.T) {
 					if err != nil {
 						t.Error(err)
 					}
-					t.Log(strings.Repeat("-", 50))
-					t.Log("Message struct: ", newmsg)
-					t.Log("Message Headers: ", newmsg.Headers)
-					t.Log("Using crypto: ", USE_CRYPTO)
-					t.Log("Using base64: ", USAGE)
-					t.Log("Message Body: ", string(newmsg.Body))
-					t.Log("Message Files: ")
-					for _, file := range newmsg.Files {
-						t.Log("  File Name: ", file.Name)
-						t.Log("  File Data: ", string(file.Data)+"\n")
-					}
-					t.Log("Message Delimiter: ", string(newmsg.Delimiter), "(bytes:", newmsg.Delimiter, ")")
+					// t.Log(strings.Repeat("-", 50))
+					// t.Log("Message struct: ", newmsg)
+					// t.Log("Message Headers: ", newmsg.Headers)
+					// t.Log("Using crypto: ", USE_CRYPTO)
+					// t.Log("Using base64: ", USAGE)
+					// t.Log("Message Body: ", string(newmsg.Body))
+					// t.Log("Message Files: ")
+					// for _, file := range newmsg.Files {
+					// t.Log("  File Name: ", file.Name)
+					// t.Log("  File Data: ", string(file.Data)+"\n")
+					// }
+					// t.Log("Message Delimiter: ", string(newmsg.Delimiter), "(bytes:", newmsg.Delimiter, ")")
+					t.Log("Client Cookies: ", c.Cookies)
 					t.Log("Message Data: ", string(newmsg.Data))
 					t.Log(strings.Repeat("-", 50))
 					if !hasBody {
@@ -203,6 +208,15 @@ func TestConnection(t *testing.T) {
 						}
 						if string(newmsg.Files["test3.txt"].Data) != "Hello World" {
 							FAILED_DELIMITERS = append(FAILED_DELIMITERS, errors.New("Current Delimiter:"+DELIMITER+"\nFile test3.txt data not equal to Hello World"))
+						}
+						if c.GetCookies("test") == nil {
+							t.Error("client.GetCookies(\"test\") == nil")
+						} else {
+							for _, cookie := range c.GetCookies("test") {
+								if cookie != "test" && cookie != "test2" {
+									t.Error("client.GetCookies(\"test\")[\"test\"] != \"test\" || client.GetCookies(\"test\")[\"test\"] != \"test2\"")
+								}
+							}
 						}
 					}
 					if string(newmsg.Body) != "" && !hasBody {

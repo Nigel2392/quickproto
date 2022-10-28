@@ -1,8 +1,8 @@
 package client
 
 import (
-	"errors"
 	"net"
+	"strings"
 
 	"github.com/Nigel2392/quickproto"
 	"github.com/Nigel2392/simplecrypto/aes"
@@ -17,17 +17,18 @@ type Client struct {
 	CONFIG    *quickproto.Config
 	OnMessage func(*quickproto.Message)
 	AesKey    *[32]byte
+	Cookies   map[string][]string
 }
 
 // Initiate a new client.
 func New(ip string, port any, conf *quickproto.Config, onmessage func(*quickproto.Message)) *Client {
-
 	return &Client{
 		IP:        ip,
 		PORT:      port,
 		Conn:      nil,
 		CONFIG:    conf,
 		OnMessage: onmessage,
+		Cookies:   make(map[string][]string),
 	}
 }
 
@@ -77,11 +78,27 @@ func (c *Client) Terminate() error {
 
 // Read a message from the server.
 func (c *Client) Read() (*quickproto.Message, error) {
-	return quickproto.ReadConn(c.Conn, c.CONFIG, c.AesKey)
+	msg, err := quickproto.ReadConn(c.Conn, c.CONFIG, c.AesKey)
+	if err != nil {
+		return nil, err
+	}
+	for k, v := range msg.Headers {
+		if strings.HasPrefix(k, "Q-SET-COOKIES-") {
+			c.Cookies[strings.TrimPrefix(k, "Q-SET-COOKIES-")] = v
+		} else if strings.HasPrefix(k, "Q-DEL-COOKIES-") {
+			delete(c.Cookies, strings.TrimPrefix(k, "Q-DEL-COOKIES-"))
+		}
+	}
+	return msg, nil
 }
 
 // Write a message to the server.
 func (c *Client) Write(msg *quickproto.Message) error {
+	for k, v := range c.Cookies {
+		for _, v2 := range v {
+			msg.AddHeader("Q-COOKIES-"+k, v2)
+		}
+	}
 	return quickproto.WriteConn(c.Conn, msg, c.AesKey)
 }
 
@@ -90,9 +107,16 @@ func (c *Client) Listen() error {
 	for {
 		msg, err := c.Read()
 		if err != nil {
-			break
+			return err
 		}
 		c.OnMessage(msg)
 	}
-	return errors.New("connection closed")
+}
+
+func (c *Client) GetCookies(key string) []string {
+	values, ok := c.Cookies[key]
+	if !ok {
+		return nil
+	}
+	return values
 }

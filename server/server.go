@@ -3,6 +3,7 @@ package server
 import (
 	"errors"
 	"net"
+	"strings"
 
 	"github.com/Nigel2392/quickproto"
 	simple_rsa "github.com/Nigel2392/simplecrypto/rsa"
@@ -24,8 +25,28 @@ type Server struct {
 type Client struct {
 	Conn net.Conn
 	Key  *[32]byte
+	// Cookies
+	Cookies    map[string][]string
+	delCookies []string
+	setCookies map[string][]string
 	// Data is used for storing extra data about the client server side.
 	Data any
+}
+
+func (c *Client) AddCookie(key string, value string) {
+	c.setCookies[key] = append(c.setCookies[key], value)
+}
+
+func (c *Client) SetCookies(key string, values []string) {
+	c.setCookies[key] = values
+}
+
+func (c *Client) DeleteCookie(key string) {
+	c.delCookies = append(c.delCookies, key)
+}
+
+func (c *Client) GetCookie(key string) []string {
+	return c.Cookies[key]
 }
 
 // Initialize a new server.
@@ -70,7 +91,10 @@ func (s *Server) Accept() (net.Conn, *Client, error) {
 	// If we are provided with a private key, we will use it to decrypt the AES key.
 	// If we are not provided with a private key, we will assume that the client is not using RSA encryption.
 	client := &Client{
-		Conn: conn,
+		Conn:       conn,
+		Cookies:    make(map[string][]string),
+		setCookies: make(map[string][]string),
+		delCookies: make([]string, 0),
 	}
 	if s.CONFIG.UseCrypto {
 		// read aes key from client.
@@ -104,11 +128,29 @@ func (s *Server) Accept() (net.Conn, *Client, error) {
 
 // Read a message from a client.
 func (s *Server) Read(client *Client) (*quickproto.Message, error) {
-	return quickproto.ReadConn(client.Conn, s.CONFIG, client.Key)
+	msg, err := quickproto.ReadConn(client.Conn, s.CONFIG, client.Key)
+	if err != nil {
+		return nil, err
+	}
+	// Logic for handling cookies.
+	for key, cookie := range msg.Headers {
+		if strings.HasPrefix(key, "Q-COOKIES-") {
+			n_key := strings.TrimPrefix(key, "Q-COOKIES-")
+			client.Cookies[n_key] = cookie
+			delete(msg.Headers, key)
+		}
+	}
+	return msg, nil
 }
 
 // Write a message to a client.
 func (s *Server) Write(client *Client, msg *quickproto.Message) error {
+	for key, cookie := range client.setCookies {
+		msg.Headers["Q-SET-COOKIES-"+key] = append(msg.Headers["Q-SET-COOKIES-"+key], cookie...)
+	}
+	for _, key := range client.delCookies {
+		msg.Headers["Q-DEL-COOKIES-"+key] = []string{"\x00"}
+	}
 	return quickproto.WriteConn(client.Conn, msg, client.Key)
 }
 
