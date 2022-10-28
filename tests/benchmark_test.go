@@ -22,14 +22,14 @@ func getGenerated(enc func(data []byte) []byte, dec func(data []byte) ([]byte, e
 
 func getPredefHeaders() map[string][]string {
 	curr_headers := make(map[string][]string)
-	for i := 0; i < 1000000; i++ {
+	for i := 0; i < 100; i++ {
 		curr_headers["key"+strconv.Itoa(i)] = append(curr_headers["key"+strconv.Itoa(i)], "value"+strconv.Itoa(i))
 	}
 	return curr_headers
 }
 
 var Predef_HEADERS = getPredefHeaders()
-var Predef_BODY = []byte(strings.Repeat("ABC", int(1000000)))
+var Predef_BODY = []byte(strings.Repeat("ABC", int(1000000/3)))
 
 func TestB64Generate(t *testing.T) {
 	msg := quickproto.NewMessage([]byte("&"), true, quickproto.Base64Encoding, quickproto.Base64Decoding)

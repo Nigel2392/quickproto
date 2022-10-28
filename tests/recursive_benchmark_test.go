@@ -9,15 +9,7 @@ import (
 	"github.com/Nigel2392/quickproto"
 )
 
-func getGeneratedSmall(enc func(data []byte) []byte, dec func(data []byte) ([]byte, error)) *quickproto.Message {
-	msg := quickproto.NewMessage([]byte("&"), true, enc, dec)
-	msg.Headers = getPredefHeadersSmall()
-	msg.Body = Predef_BODY_SMALL
-	msg.Generate()
-	return msg
-}
-
-func getNormal(enc func(data []byte) []byte, dec func(data []byte) ([]byte, error)) *quickproto.Message {
+func getGeneratedMessage(enc func(data []byte) []byte, dec func(data []byte) ([]byte, error)) *quickproto.Message {
 	msg := quickproto.NewMessage([]byte("&"), true, enc, dec)
 	msg.Headers = Preder_HEADERS_SMALL
 	msg.Body = Predef_BODY_SMALL
@@ -34,12 +26,12 @@ func getPredefHeadersSmall() map[string][]string {
 }
 
 var Preder_HEADERS_SMALL = getPredefHeadersSmall()
-var Predef_BODY_SMALL = []byte(strings.Repeat("ABC", int(100000/3)))
+var Predef_BODY_SMALL = []byte(strings.Repeat("ABC", int(10000)))
 
-const ITERS = 10000
+const ITERS = 100000
 
 func TestRecursiveGenerateB16(t *testing.T) {
-	msg := getNormal(quickproto.Base16Encoding, quickproto.Base16Decoding)
+	msg := getGeneratedMessage(quickproto.Base16Encoding, quickproto.Base16Decoding)
 	start_time := time.Now()
 	for i := 0; i < ITERS; i++ {
 		msg.Generate()
@@ -48,7 +40,7 @@ func TestRecursiveGenerateB16(t *testing.T) {
 }
 
 func TestRecursiveGenerateB32(t *testing.T) {
-	msg := getNormal(quickproto.Base32Encoding, quickproto.Base32Decoding)
+	msg := getGeneratedMessage(quickproto.Base32Encoding, quickproto.Base32Decoding)
 	start_time := time.Now()
 	for i := 0; i < ITERS; i++ {
 		msg.Generate()
@@ -57,7 +49,7 @@ func TestRecursiveGenerateB32(t *testing.T) {
 }
 
 func TestRecursiveGenerateB64(t *testing.T) {
-	msg := getNormal(quickproto.Base64Encoding, quickproto.Base64Decoding)
+	msg := getGeneratedMessage(quickproto.Base64Encoding, quickproto.Base64Decoding)
 	start_time := time.Now()
 	for i := 0; i < ITERS; i++ {
 		msg.Generate()
@@ -66,7 +58,7 @@ func TestRecursiveGenerateB64(t *testing.T) {
 }
 
 func TestRecursiveGenerateGob(t *testing.T) {
-	msg := getNormal(quickproto.GobEncoding, quickproto.GobDecoding)
+	msg := getGeneratedMessage(quickproto.GobEncoding, quickproto.GobDecoding)
 	start_time := time.Now()
 	for i := 0; i < ITERS; i++ {
 		msg.Generate()
@@ -75,7 +67,7 @@ func TestRecursiveGenerateGob(t *testing.T) {
 }
 
 func TestRecursiveGeneratePlain(t *testing.T) {
-	msg := getNormal(nil, nil)
+	msg := getGeneratedMessage(nil, nil)
 	start_time := time.Now()
 	for i := 0; i < ITERS; i++ {
 		msg.Generate()
@@ -84,7 +76,7 @@ func TestRecursiveGeneratePlain(t *testing.T) {
 }
 
 func TestRecursiveParseB16(t *testing.T) {
-	msg := getGeneratedSmall(quickproto.Base16Encoding, quickproto.Base16Decoding)
+	msg := getGeneratedMessage(quickproto.Base16Encoding, quickproto.Base16Decoding)
 	start_time := time.Now()
 	for i := 0; i < ITERS; i++ {
 		msg.Parse()
@@ -94,7 +86,7 @@ func TestRecursiveParseB16(t *testing.T) {
 }
 
 func TestRecursiveParseB32(t *testing.T) {
-	msg := getGeneratedSmall(quickproto.Base32Encoding, quickproto.Base32Decoding)
+	msg := getGeneratedMessage(quickproto.Base32Encoding, quickproto.Base32Decoding)
 	start_time := time.Now()
 	for i := 0; i < ITERS; i++ {
 		msg.Parse()
@@ -104,7 +96,7 @@ func TestRecursiveParseB32(t *testing.T) {
 }
 
 func TestRecursiveParseB64(t *testing.T) {
-	msg := getGeneratedSmall(quickproto.Base64Encoding, quickproto.Base64Decoding)
+	msg := getGeneratedMessage(quickproto.Base64Encoding, quickproto.Base64Decoding)
 	start_time := time.Now()
 	for i := 0; i < ITERS; i++ {
 		msg.Parse()
@@ -114,7 +106,7 @@ func TestRecursiveParseB64(t *testing.T) {
 }
 
 func TestRecursiveParseGob(t *testing.T) {
-	msg := getGeneratedSmall(quickproto.GobEncoding, quickproto.GobDecoding)
+	msg := getGeneratedMessage(quickproto.GobEncoding, quickproto.GobDecoding)
 	start_time := time.Now()
 	for i := 0; i < ITERS; i++ {
 		msg.Parse()
@@ -124,7 +116,7 @@ func TestRecursiveParseGob(t *testing.T) {
 }
 
 func TestRecursiveParsePlain(t *testing.T) {
-	msg := getGeneratedSmall(nil, nil)
+	msg := getGeneratedMessage(nil, nil)
 	start_time := time.Now()
 	for i := 0; i < ITERS; i++ {
 		msg.Parse()
