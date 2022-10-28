@@ -90,6 +90,7 @@ func TestConnection(t *testing.T) {
 					conf := quickproto.NewConfig([]byte(DELIMITER), USAGE, USE_CRYPTO, 2048, quickproto.Base64Encoding, quickproto.Base64Decoding)
 					conf.PrivateKey = privkey
 					conf.PublicKey = pubkey
+					conf.Compressed = true
 					IP := "127.0.0.1"
 					mut.Lock()
 					ct++

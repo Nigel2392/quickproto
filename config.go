@@ -21,6 +21,8 @@ type Config struct {
 	// RSA keys
 	PrivateKey *rsa.PrivateKey // Server-side.
 	PublicKey  *rsa.PublicKey  // Client-side.
+	// Compress the messages
+	Compressed bool
 }
 
 // NewConfig creates a new Config.

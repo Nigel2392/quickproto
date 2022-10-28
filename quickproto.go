@@ -3,6 +3,7 @@ package quickproto
 import (
 	"bytes"
 	"errors"
+	"strconv"
 	"strings"
 )
 
@@ -144,6 +145,9 @@ func (m *Message) Parse() (*Message, error) {
 	headers := bytes.Split(datalist[0], header_delimiter)
 	for _, header := range headers {
 		head := bytes.Split(header, m.Delimiter)
+		if len(head) < 2 {
+			return nil, errors.New("invalid header key value sent")
+		}
 		str_list := make([]string, 0)
 		// Set multiple values for each key
 		for _, byt := range head[1:] {
@@ -170,12 +174,23 @@ func (m *Message) Parse() (*Message, error) {
 
 	// Extract files from body_data
 	for _, file := range body_data {
-		file_data_list := bytes.SplitN(file, header_delimiter, 2)
+		file_data_list := bytes.SplitN(file, header_delimiter, 3)
+		if len(file_data_list) != 3 {
+			return nil, errors.New("invalid file sent")
+		}
 		file_name := string(file_data_list[0])
-		// File data should always be encoded!
-		file_data, err := m.F_Decoder(file_data_list[1])
+		is_encoded, err := strconv.ParseBool(string(file_data_list[1]))
 		if err != nil {
-			return nil, err
+			return nil, errors.New("cannot parse file is_encoded")
+		}
+		var file_data []byte
+		if is_encoded {
+			file_data, err = m.F_Decoder(file_data_list[2])
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			file_data = file_data_list[2]
 		}
 		mf := NewmessageFile(file_name, file_data)
 		m.Files[file_name] = &mf
@@ -199,69 +214,77 @@ func (m *Message) Generate() (*Message, error) {
 		LenDelim         = len(m.Delimiter)
 		lenHDelim        = LenDelim * 2
 		lenFDelim        = lenHDelim * 3
+		lenBDelim        = lenHDelim * 2
 	)
 	// Create headers
 	for key, value := range m.Headers {
-		// Start goroutine for each header
-		// Create buffer for length of current header line
-		total_len := 0
+		// Create buffer for length of current header line;
+		// first get the total length
+		var total_len int = 0
 		for _, str := range value {
 			// Append key and value to headerline
-			val_len := len(str)
-			total_len = total_len + val_len + LenDelim
+			total_len = total_len + len(str) + LenDelim
 		}
 		// Create headerline
-		headerline := make([]byte, len(key)+LenDelim+total_len+LenDelim)
+		var headerline []byte = make([]byte, len(key)+lenHDelim+total_len)
 		// Copy key to headerline
-		copy(headerline, key)
-		copy(headerline[len(key):], m.Delimiter)
+		var n int = copy(headerline, key)
+		// Copy delimiter to headerline
+		n = n + copy(headerline[n:], m.Delimiter)
 		// Copy values to headerline
-		current_pos := len(key) + LenDelim
 		for _, str := range value {
-			copy(headerline[current_pos:], str)
-			copy(headerline[current_pos+len(str):], m.Delimiter)
-			current_pos = current_pos + len(str) + LenDelim
+			n = n + copy(headerline[n:], str)
+			n = n + copy(headerline[n:], m.Delimiter)
 		}
-		// Set last delimiter
-		copy(headerline[current_pos:], m.Delimiter)
-		// Append headerline to buffer
-		// Lock the mutex to prevent datarace
+		copy(headerline[n:], m.Delimiter)
+		// Copy headerline to buffer
 		buffer.Write(headerline)
 	}
-	buffer.Write(header_delimiter)
 	// Get files
 	var bodybuffer bytes.Buffer
 	for _, file := range m.Files {
 		// Write the file to the body
 		// Create buffer for length of current file line
 		// Encode file data
-		fdata := m.F_Encoder(file.Data)
+		var fdata []byte
+		var should_be_encoded bool = bytes.Contains(file.Data, file_delimiter) || bytes.Contains(file.Data, header_delimiter)
+		if should_be_encoded {
+			fdata = m.F_Encoder(file.Data)
+		} else {
+			fdata = file.Data
+		}
 		// Get size of buffer for all file data and delimiters
-		total_len := len(file.Name) + lenHDelim + len(fdata) + lenFDelim
-		fileline := make([]byte, total_len)
+		is_encoded := strconv.FormatBool(should_be_encoded)
+		var fileline []byte = make([]byte, len(file.Name)+lenBDelim+len(is_encoded)+len(fdata)+lenFDelim)
 		// Copy data to fileline
-		copy(fileline, file.Name)
-		copy(fileline[len(file.Name):], header_delimiter)
-		copy(fileline[len(file.Name)+lenHDelim:], fdata)
-		copy(fileline[len(file.Name)+lenHDelim+len(fdata):], file_delimiter)
+		var n int = copy(fileline, file.Name)
+		n = n + copy(fileline[n:], header_delimiter)
+		n = n + copy(fileline[n:], is_encoded)
+		n = n + copy(fileline[n:], header_delimiter)
+		n = n + copy(fileline[n:], fdata)
+		copy(fileline[n:], file_delimiter)
 		// Append fileline to buffer
 		bodybuffer.Write(fileline)
 	}
-	// Wait for all goroutines to finish
-	// Create body
-
 	// Append body to buffer
-	bodybuffer.Write(m.Body)
 	// Write a NULL byte if body is empty.
 	// This is to prevent one of the files ending up as the body, when no body is provided.
 	if len(m.Body) == 0 {
 		bodybuffer.Write([]byte{0x00})
+	} else {
+		bodybuffer.Write(m.Body)
 	}
 	if m.Encode_func != nil && m.Decode_func != nil && m.UseEncoding {
 		// If encoding is set, create buffer and encode body
-		buffer.Write(m.Encode_func(bodybuffer.Bytes()))
+		w_data := bodybuffer.Bytes()
+		enc_data := m.Encode_func(w_data)
+		buffer.Grow(len(enc_data) + len(m.EndingDelimiter()) + len(header_delimiter))
+		buffer.Write(header_delimiter)
+		buffer.Write(enc_data)
 	} else {
 		// Else write body to buffer
+		buffer.Grow(bodybuffer.Len() + len(m.EndingDelimiter()) + len(header_delimiter))
+		buffer.Write(header_delimiter)
 		buffer.Write(bodybuffer.Bytes())
 	}
 	buffer.Write(m.EndingDelimiter())

@@ -78,7 +78,7 @@ func (c *Client) Terminate() error {
 
 // Read a message from the server.
 func (c *Client) Read() (*quickproto.Message, error) {
-	msg, err := quickproto.ReadConn(c.Conn, c.CONFIG, c.AesKey)
+	msg, err := quickproto.ReadConn(c.Conn, c.CONFIG, c.AesKey, c.CONFIG.Compressed)
 	if err != nil {
 		return nil, err
 	}
@@ -99,7 +99,7 @@ func (c *Client) Write(msg *quickproto.Message) error {
 			msg.AddHeader("Q-COOKIES-"+k, v2)
 		}
 	}
-	return quickproto.WriteConn(c.Conn, msg, c.AesKey)
+	return quickproto.WriteConn(c.Conn, msg, c.AesKey, c.CONFIG.Compressed)
 }
 
 // Listen for messages from the server.

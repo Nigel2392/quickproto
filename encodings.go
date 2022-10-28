@@ -2,6 +2,7 @@ package quickproto
 
 import (
 	"bytes"
+	"compress/gzip"
 	"encoding/base32"
 	"encoding/base64"
 	"encoding/gob"
@@ -81,4 +82,51 @@ func KeyDecoder(data []byte) (*[32]byte, error) {
 	var key [32]byte
 	copy(key[:], b_key)
 	return &key, nil
+}
+
+func Compress(data []byte) ([]byte, error) {
+	// Create a new buffer
+	buffer := new(bytes.Buffer)
+
+	// Create a new gzip writer
+	writer := gzip.NewWriter(buffer)
+
+	// Write the data to the writer
+	_, err := writer.Write(data)
+	if err != nil {
+		return nil, err
+	}
+
+	// Close the writer
+	err = writer.Close()
+	if err != nil {
+		return nil, err
+	}
+
+	return buffer.Bytes(), nil
+}
+
+func Decompress(data []byte) ([]byte, error) {
+	// Create a new buffer
+	buffer := bytes.NewBuffer(data)
+
+	// Create a new gzip reader
+	reader, err := gzip.NewReader(buffer)
+	if err != nil {
+		return nil, err
+	}
+
+	// Read the data from the reader
+	result, err := io.ReadAll(reader)
+	if err != nil {
+		return nil, err
+	}
+
+	// Close the reader
+	err = reader.Close()
+	if err != nil {
+		return nil, err
+	}
+
+	return result, nil
 }

@@ -1,6 +1,8 @@
 //go:build !benchmark
 // +build !benchmark
 
+// go test -benchmem -run=^# -v -bench=. -count=5 github.com/Nigel2392/quickproto/tests
+
 package tests
 
 import (

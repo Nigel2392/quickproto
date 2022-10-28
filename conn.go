@@ -22,7 +22,7 @@ func CraftAddr(ip string, port any) string {
 }
 
 // ReadConn reads a message from a connection.
-func ReadConn(conn net.Conn, conf *Config, aes_key *[32]byte) (*Message, error) {
+func ReadConn(conn net.Conn, conf *Config, aes_key *[32]byte, compress bool) (*Message, error) {
 	msg := conf.NewMessage()
 	buf := make([]byte, conf.BufSize)
 	var data []byte
@@ -37,9 +37,19 @@ func ReadConn(conn net.Conn, conf *Config, aes_key *[32]byte) (*Message, error) 
 		// flush buffer.
 	}
 	// decrypt data if needed.
+	if compress {
+		data = bytes.TrimSuffix(data, msg.EndingDelimiter())
+		var err error
+		data, err = Decompress(data)
+		if err != nil {
+			return nil, err
+		}
+	}
 	if aes_key != nil {
 		var err error
-		data = bytes.TrimSuffix(data, msg.EndingDelimiter())
+		if !compress {
+			data = bytes.TrimSuffix(data, msg.EndingDelimiter())
+		}
 		if data, err = aes.Decrypt(data, aes_key); err != nil {
 			return nil, err
 		}
@@ -50,7 +60,7 @@ func ReadConn(conn net.Conn, conf *Config, aes_key *[32]byte) (*Message, error) 
 }
 
 // WriteConn writes a message to a connection and encrypts it if needed.
-func WriteConn(conn net.Conn, msg *Message, aes_key *[32]byte) error {
+func WriteConn(conn net.Conn, msg *Message, aes_key *[32]byte, compress bool) error {
 	// Write data to connection.
 	send, err := msg.Generate()
 	if err != nil {
@@ -59,6 +69,15 @@ func WriteConn(conn net.Conn, msg *Message, aes_key *[32]byte) error {
 	if aes_key != nil {
 		send.Data = bytes.TrimSuffix(send.Data, msg.EndingDelimiter())
 		send.Data, err = aes.Encrypt(send.Data, aes_key)
+		if err != nil {
+			return err
+		}
+		if !compress {
+			send.Data = append(send.Data, msg.EndingDelimiter()...)
+		}
+	}
+	if compress {
+		send.Data, err = Compress(send.Data)
 		if err != nil {
 			return err
 		}

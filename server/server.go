@@ -128,7 +128,7 @@ func (s *Server) Accept() (net.Conn, *Client, error) {
 
 // Read a message from a client.
 func (s *Server) Read(client *Client) (*quickproto.Message, error) {
-	msg, err := quickproto.ReadConn(client.Conn, s.CONFIG, client.Key)
+	msg, err := quickproto.ReadConn(client.Conn, s.CONFIG, client.Key, s.CONFIG.Compressed)
 	if err != nil {
 		return nil, err
 	}
@@ -151,7 +151,7 @@ func (s *Server) Write(client *Client, msg *quickproto.Message) error {
 	for _, key := range client.delCookies {
 		msg.Headers["Q-DEL-COOKIES-"+key] = []string{"\x00"}
 	}
-	return quickproto.WriteConn(client.Conn, msg, client.Key)
+	return quickproto.WriteConn(client.Conn, msg, client.Key, s.CONFIG.Compressed)
 }
 
 // Close a client connection.
