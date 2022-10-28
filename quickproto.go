@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"strings"
-	"sync"
 )
 
 // Normal delimiter example:
@@ -141,28 +140,17 @@ func (m *Message) Parse() (*Message, error) {
 	if len(datalist) != 2 {
 		return nil, errors.New("invalid message sent")
 	}
-	// Get headers from datalist
 	// Split headers into key/value pairs
 	headers := bytes.Split(datalist[0], header_delimiter)
-	var wg sync.WaitGroup
-	var mu sync.Mutex
 	for _, header := range headers {
-		wg.Add(1)
-		// Start goroutine for each header
-		go func(header []byte, wg *sync.WaitGroup, mu *sync.Mutex) {
-			defer wg.Done()
-			// Split each header into key and values
-			head := bytes.Split(header, m.Delimiter)
-			str_list := make([]string, 0)
-			// Set multiple values for each key
-			for _, byt := range head[1:] {
-				str_list = append(str_list, string(byt))
-			}
-			// Set key and values, lock for thread safety
-			mu.Lock()
-			m.Headers[string(head[0])] = str_list
-			mu.Unlock()
-		}(header, &wg, &mu)
+		head := bytes.Split(header, m.Delimiter)
+		str_list := make([]string, 0)
+		// Set multiple values for each key
+		for _, byt := range head[1:] {
+			str_list = append(str_list, string(byt))
+		}
+		// Set key and values, lock for thread safety
+		m.Headers[string(head[0])] = str_list
 	}
 	// Decode base64 encoded body
 	var body []byte
@@ -181,24 +169,17 @@ func (m *Message) Parse() (*Message, error) {
 	body_data = body_data[:len(body_data)-1]
 
 	// Extract files from body_data
-	wg.Add(len(body_data))
 	for _, file := range body_data {
-		go func(file []byte, wg *sync.WaitGroup, mu *sync.Mutex) {
-			defer wg.Done()
-			file_data_list := bytes.SplitN(file, header_delimiter, 2)
-			file_name := string(file_data_list[0])
-			// File data should always be encoded!
-			file_data, err := m.F_Decoder(file_data_list[1])
-			if err != nil {
-				return
-			}
-			mf := NewmessageFile(file_name, file_data)
-			mu.Lock()
-			m.Files[file_name] = &mf
-			mu.Unlock()
-		}(file, &wg, &mu)
+		file_data_list := bytes.SplitN(file, header_delimiter, 2)
+		file_name := string(file_data_list[0])
+		// File data should always be encoded!
+		file_data, err := m.F_Decoder(file_data_list[1])
+		if err != nil {
+			return nil, err
+		}
+		mf := NewmessageFile(file_name, file_data)
+		m.Files[file_name] = &mf
 	}
-	wg.Wait()
 	if len(body) != 1 && body[0] != 0x00 {
 		m.Body = body
 	}
@@ -211,8 +192,6 @@ func (m *Message) Parse() (*Message, error) {
 // Body is a base64 encoded byte slice.
 func (m *Message) Generate() (*Message, error) {
 	var buffer bytes.Buffer
-	var wg sync.WaitGroup
-	var mu sync.Mutex
 	// Predefine delimiters so we dont have to calculate them every time.
 	var (
 		header_delimiter = m.HeaderDelimiter()
@@ -223,68 +202,53 @@ func (m *Message) Generate() (*Message, error) {
 	)
 	// Create headers
 	for key, value := range m.Headers {
-		wg.Add(1)
 		// Start goroutine for each header
-		go func(key string, value []string, buffer *bytes.Buffer, wg *sync.WaitGroup, mu *sync.Mutex) {
-			defer wg.Done()
-			// Create buffer for length of current header line
-			total_len := 0
-			for _, str := range value {
-				// Append key and value to headerline
-				val_len := len(str)
-				total_len = total_len + val_len + LenDelim
-			}
-			// Create headerline
-			headerline := make([]byte, len(key)+LenDelim+total_len+LenDelim)
-			// Copy key to headerline
-			copy(headerline, key)
-			copy(headerline[len(key):], m.Delimiter)
-			// Copy values to headerline
-			current_pos := len(key) + LenDelim
-			for _, str := range value {
-				copy(headerline[current_pos:], str)
-				copy(headerline[current_pos+len(str):], m.Delimiter)
-				current_pos = current_pos + len(str) + LenDelim
-			}
-			// Set last delimiter
-			copy(headerline[current_pos:], m.Delimiter)
-			// Append headerline to buffer
-			// Lock the mutex to prevent datarace
-			mu.Lock()
-			buffer.Write(headerline)
-			mu.Unlock()
-		}(key, value, &buffer, &wg, &mu)
+		// Create buffer for length of current header line
+		total_len := 0
+		for _, str := range value {
+			// Append key and value to headerline
+			val_len := len(str)
+			total_len = total_len + val_len + LenDelim
+		}
+		// Create headerline
+		headerline := make([]byte, len(key)+LenDelim+total_len+LenDelim)
+		// Copy key to headerline
+		copy(headerline, key)
+		copy(headerline[len(key):], m.Delimiter)
+		// Copy values to headerline
+		current_pos := len(key) + LenDelim
+		for _, str := range value {
+			copy(headerline[current_pos:], str)
+			copy(headerline[current_pos+len(str):], m.Delimiter)
+			current_pos = current_pos + len(str) + LenDelim
+		}
+		// Set last delimiter
+		copy(headerline[current_pos:], m.Delimiter)
+		// Append headerline to buffer
+		// Lock the mutex to prevent datarace
+		buffer.Write(headerline)
 	}
+	buffer.Write(header_delimiter)
 	// Get files
 	var bodybuffer bytes.Buffer
-	wg.Add(len(m.Files))
 	for _, file := range m.Files {
 		// Write the file to the body
-		go func(file *messageFile, buffer *bytes.Buffer, wg *sync.WaitGroup, mu *sync.Mutex) {
-			defer wg.Done()
-			// Create buffer for length of current file line
-			// Encode file data
-			fdata := m.F_Encoder(file.Data)
-			// Get size of buffer for all file data and delimiters
-			total_len := len(file.Name) + lenHDelim + len(fdata) + lenFDelim
-			fileline := make([]byte, total_len)
-			// Copy data to fileline
-			copy(fileline, file.Name)
-			copy(fileline[len(file.Name):], header_delimiter)
-			copy(fileline[len(file.Name)+lenHDelim:], fdata)
-			copy(fileline[len(file.Name)+lenHDelim+len(fdata):], file_delimiter)
-
-			// Lock the mutex to prevent datarace
-			mu.Lock()
-			// Append fileline to buffer
-			bodybuffer.Write(fileline)
-			mu.Unlock()
-		}(file, &buffer, &wg, &mu)
+		// Create buffer for length of current file line
+		// Encode file data
+		fdata := m.F_Encoder(file.Data)
+		// Get size of buffer for all file data and delimiters
+		total_len := len(file.Name) + lenHDelim + len(fdata) + lenFDelim
+		fileline := make([]byte, total_len)
+		// Copy data to fileline
+		copy(fileline, file.Name)
+		copy(fileline[len(file.Name):], header_delimiter)
+		copy(fileline[len(file.Name)+lenHDelim:], fdata)
+		copy(fileline[len(file.Name)+lenHDelim+len(fdata):], file_delimiter)
+		// Append fileline to buffer
+		bodybuffer.Write(fileline)
 	}
 	// Wait for all goroutines to finish
-	wg.Wait()
 	// Create body
-	buffer.Write(header_delimiter)
 
 	// Append body to buffer
 	bodybuffer.Write(m.Body)

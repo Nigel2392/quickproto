@@ -29,7 +29,7 @@ func getPredefHeaders() map[string][]string {
 }
 
 var Predef_HEADERS = getPredefHeaders()
-var Predef_BODY = []byte(strings.Repeat("ABC", int(1000000000/3)))
+var Predef_BODY = []byte(strings.Repeat("ABC", int(1000000)))
 
 func TestB64Generate(t *testing.T) {
 	msg := quickproto.NewMessage([]byte("&"), true, quickproto.Base64Encoding, quickproto.Base64Decoding)
