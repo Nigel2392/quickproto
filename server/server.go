@@ -66,6 +66,8 @@ func (s *Server) Addr() string {
 }
 
 // Listen for connections
+// Can be done with UDP or TCP.
+// When using UDP, the server will not be able to parse messages if use_crypto is true.
 func (s *Server) Listen(typ ...string) (net.Listener, error) {
 	var err error
 	if len(typ) > 0 {
