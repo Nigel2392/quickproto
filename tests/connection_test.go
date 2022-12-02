@@ -19,6 +19,7 @@ import (
 // This test is not race condition safe, do not run with --race!
 func TestConnection(t *testing.T) {
 	var UseB64 []bool = []bool{false, true}
+	var CONNTYPE string = "udp"
 	var DELIMITER_LIST []string = []string{
 		"!", "@", "#", "$", "%", "^", "&", "*", "+", "[", "{", "]", "}", ";", ":", "'", "\"", ",", "<", ".", ">", "/", "?", "`", "~", "|", "\\", " ",
 		// Ascii escape characters
@@ -79,6 +80,11 @@ func TestConnection(t *testing.T) {
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 	for _, USE_CRYPTO := range UseB64 {
+		if USE_CRYPTO {
+			CONNTYPE = "tcp"
+		} else {
+			CONNTYPE = "udp"
+		}
 		for _, USAGE := range UseB64 {
 			ct += len(DELIMITER_LIST) / 2
 			// go func(wg *sync.WaitGroup, DELIMITER_LIST []string, USAGE bool, BUFFER_SIZE int) {
@@ -97,7 +103,7 @@ func TestConnection(t *testing.T) {
 					Port := 8080 + ct
 					s := server.New(IP, Port, conf)
 					go func(t *testing.T, s *server.Server) {
-						s.Listen()
+						s.Listen(CONNTYPE)
 						for {
 							_, client, err := s.Accept()
 							if err != nil {
@@ -134,7 +140,7 @@ func TestConnection(t *testing.T) {
 					}(t, s)
 					c := client.New(IP, Port, conf, nil)
 					mut.Unlock()
-					c.Connect()
+					c.Connect(CONNTYPE)
 					t.Log("Client key: ", c.AesKey)
 					msg := conf.NewMessage()
 					// Add headers to message

@@ -66,9 +66,13 @@ func (s *Server) Addr() string {
 }
 
 // Listen for connections
-func (s *Server) Listen() (net.Listener, error) {
+func (s *Server) Listen(typ ...string) (net.Listener, error) {
 	var err error
-	s.Listener, err = net.Listen("tcp", s.Addr())
+	if len(typ) > 0 {
+		s.Listener, err = net.Listen(typ[0], s.Addr())
+	} else {
+		s.Listener, err = net.Listen("tcp", s.Addr())
+	}
 	return s.Listener, err
 }
 

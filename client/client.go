@@ -38,13 +38,17 @@ func (c *Client) Addr() string {
 }
 
 // Connect to the server.
-func (c *Client) Connect() error {
+func (c *Client) Connect(typ ...string) error {
 	// If we are using crypto, the first message sent by the client will be the AES key.
 	// If the client is provided with a public key, it will use it to encrypt the AES key.
 	// The server will then use its private key to decrypt the AES key.
 	// Then, the server will use the AES key to decrypt all future messages.
 	var err error
-	c.Conn, err = net.Dial("tcp", c.Addr())
+	if len(typ) > 0 {
+		c.Conn, err = net.Dial(typ[0], c.Addr())
+	} else {
+		c.Conn, err = net.Dial("tcp", c.Addr())
+	}
 	if c.CONFIG.UseCrypto && c.AesKey == nil {
 		// Generate new aes key each session
 		aes_key := aes.NewEncryptionKey()
